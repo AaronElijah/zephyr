@@ -295,3 +295,26 @@ int dsa_port_enable(struct net_if *iface, int port)
 
 	return api->port_enable(dev, port, &link_state);
 }
+
+/**
+ * @brief 	    Configure MAC link on switch port
+ *
+ * @param 		iface 		   DSA interface
+ * @param		port		   Port to enable
+ * @param 		mode 		   Autonegotiation mode ('phy', 'fixed', 'inband')
+ * @param 		speed 		   Link speed (10, 100, 200, 1000, 2500, 10000)
+ * @param		duplex 	   	   Duplex mode (1 [full], 0 [half])
+ * @param 		tx_pause 	   Enable TX pause
+ * @param 		rx_pause 	   Enable RX pause
+ *
+ * @return 		0 if successful, negative if error
+ */
+int dsa_port_phylink_mac_link_up(struct net_if *iface, int port, unsigned int mode, int speed,
+				 int duplex, bool tx_pause, bool rx_pause)
+{
+	const struct device *dev = net_if_get_device(iface);
+	struct dsa_context *context = dev->data;
+	const struct dsa_api *api = (const struct dsa_api *)context->dapi;
+
+	return api->phylink_mac_link_up(dev, port, mode, speed, duplex, tx_pause, rx_pause);
+}
