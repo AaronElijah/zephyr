@@ -171,6 +171,17 @@ struct dsa_api {
 	int (*switch_get_mac_table_entry)(const struct device *dev, uint8_t *buf,
 					  uint16_t tbl_entry_idx);
 
+	/*
+	 * DSA helper callbacks
+	 */
+	struct net_pkt *(*dsa_xmit_pkt)(struct net_if *iface, struct net_pkt *pkt);
+
+	/*
+	 * Access to the switch's PHY registers.
+	 */
+	int (*phy_read)(const struct device *dev, int port, int regnum, uint16_t *value);
+	int (*phy_write)(const struct device *dev, int port, int regnum, uint16_t value);
+
 	/** TODO: implement all phy_device API from linux to phy_link_state in zephyr */
 	/** Port enable/disable */
 	int (*port_enable)(const struct device *dev, int port, struct phy_link_state *phy);
@@ -179,10 +190,19 @@ struct dsa_api {
 	int (*phylink_mac_link_up)(const struct device *dev, int port, unsigned int mode, int speed,
 				   int duplex, bool tx_pause, bool rx_pause);
 
+	/** VLAN support */
+	int (*port_vlan_filtering)(const struct device *dev, int port, bool vlan_filtering);
+	int (*port_vlan_add)(const struct device *dev, int port, uint16_t vid, bool untagged,
+			     bool pvid);
+	int (*port_vlan_del)(
+		const struct device *dev, int port,
+		uint16_t vid); // TODO: may need to add flags, etc arguments to this functions
+
 	/*
-	 * DSA helper callbacks
+	 * Forwarding database
 	 */
-	struct net_pkt *(*dsa_xmit_pkt)(struct net_if *iface, struct net_pkt *pkt);
+	int (*port_fdb_del)(const struct device *dev, int port, const unsigned char *addr,
+			    uint16_t vid);
 };
 
 /**
@@ -266,6 +286,55 @@ int dsa_port_disable(struct net_if *iface, int port);
  * @return 		0 if successful, negative if error
  */
 int dsa_port_enable(struct net_if *iface, int port);
+
+/**
+ * @brief 	    Configure MAC link on switch port
+ *
+ * @param 		iface 		   DSA interface
+ * @param		port		   Port to enable
+ * @param 		mode 		   Autonegotiation mode ('phy', 'fixed', 'inband')
+ * @param 		speed 		   Link speed (10, 100, 200, 1000, 2500, 10000)
+ * @param		duplex 	   	   Duplex mode (1 [full], 0 [half])
+ * @param 		tx_pause 	   Enable TX pause
+ * @param 		rx_pause 	   Enable RX pause
+ *
+ * @return 		0 if successful, negative if error
+ */
+int dsa_port_phylink_mac_link_up(struct net_if *iface, int port, unsigned int mode, int speed,
+				 int duplex, bool tx_pause, bool rx_pause);
+
+/**
+ * @brief 	    Enable/disable VLAN filtering on switch port
+ *
+ * @param 		iface 		   DSA interface
+ * @param		port		   Port to enable VLANs
+ * @param 		vlan_filtering Enable/disable VLAN filtering
+ *
+ * @return 		0 if successful, negative if error
+ */
+int dsa_port_vlan_filtering(struct net_if *iface, int port, bool vlan_filtering);
+
+/**
+ * @brief 		Add VLAN to switch port
+ *
+ * @param 		iface 		   DSA interface
+ * @param		port		   Port to enable
+ * @param 		vlan_id 	   VLAN ID
+ *
+ * @return 		0 if successful, negative if error
+ */
+int dsa_port_vlan_add(struct net_if *iface, int port, uint16_t vid, bool untagged, bool pvid);
+
+/**
+ * @brief        Remove VLAN from switch port
+ *
+ * @param 		iface 		   DSA interface
+ * @param		port		   Port to enable
+ * @param 		vlan_id 	   VLAN ID
+ *
+ * @return 		0 if successful, negative if error
+ */
+int dsa_port_vlan_del(struct net_if *iface, int port, uint16_t vid);
 
 /**
  * @brief Structure to provide mac address for each LAN interface

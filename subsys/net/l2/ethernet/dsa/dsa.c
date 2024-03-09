@@ -318,3 +318,63 @@ int dsa_port_phylink_mac_link_up(struct net_if *iface, int port, unsigned int mo
 
 	return api->phylink_mac_link_up(dev, port, mode, speed, duplex, tx_pause, rx_pause);
 }
+
+/**
+ * @brief 	    Enable/disable VLAN filtering on switch port
+ *
+ * @param 		iface 		   DSA interface
+ * @param		port		   Port to enable VLANs
+ * @param 		vlan_filtering Enable/disable VLAN filtering
+ *
+ * @return 		0 if successful, negative if error
+ */
+int dsa_port_vlan_filtering(struct net_if *iface, int port, bool vlan_filtering)
+{
+	const struct device *dev = net_if_get_device(iface);
+	struct dsa_context *context = dev->data;
+	const struct dsa_api *api = (const struct dsa_api *)context->dapi;
+
+	// TODO: can we remove the need to have `port` as an arugment to this function? Why can't we
+	// use `iface`?
+	return api->port_vlan_filtering(dev, port, vlan_filtering);
+}
+
+/**
+ * @brief 		Add VLAN to switch port
+ *
+ * @param 		iface 		   DSA interface
+ * @param		port		   Port to enable
+ * @param 		vlan_id 	   VLAN ID
+ *
+ * @return 		0 if successful, negative if error
+ */
+int dsa_port_vlan_add(struct net_if *iface, int port, uint16_t vid, bool untagged, bool pvid)
+{
+	const struct device *dev = net_if_get_device(iface);
+	struct dsa_context *context = dev->data;
+	const struct dsa_api *api = (const struct dsa_api *)context->dapi;
+
+	// TODO: can we remove the need to have `port` as an arugment to this function? Why can't we
+	// use `iface`?
+	return api->port_vlan_add(dev, port, bool untagged, bool pvid);
+}
+
+/**
+ * @brief        Remove VLAN from switch port
+ *
+ * @param 		iface 		   DSA interface
+ * @param		port		   Port to enable
+ * @param 		vlan_id 	   VLAN ID
+ *
+ * @return 		0 if successful, negative if error
+ */
+int dsa_port_vlan_del(struct net_if *iface, int port, uint16_t vid)
+{
+	const struct device *dev = net_if_get_device(iface);
+	struct dsa_context *context = dev->data;
+	const struct dsa_api *api = (const struct dsa_api *)context->dapi;
+
+	// TODO: can we remove the need to have `port` as an arugment to this function? Why can't we
+	// use `iface`?
+	return api->port_vlan_del(dev, port, vid);
+}
