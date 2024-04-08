@@ -360,7 +360,7 @@ int dsa_port_vlan_add(struct net_if *iface, int port, uint16_t vid, bool untagge
 }
 
 /**
- * @brief        Remove VLAN from switch port
+ * @brief       Remove VLAN from switch port
  *
  * @param 		iface 		   DSA interface
  * @param		port		   Port to enable
@@ -377,4 +377,147 @@ int dsa_port_vlan_del(struct net_if *iface, int port, uint16_t vid)
 	// TODO: can we remove the need to have `port` as an arugment to this function? Why can't we
 	// use `iface`?
 	return api->port_vlan_del(dev, port, vid);
+}
+
+/**
+ * @brief       Add LAG group to switch
+ *
+ * @param 		iface 		   DSA interface
+ * @param 		lag_id 	   	   LAG group ID
+ *
+ * @return 		0 if successful, negative if error
+ */
+int dsa_switch_lag_join(struct net_if *iface, int port, unsigned int lag_id)
+{
+	const struct device *dev = net_if_get_device(iface);
+	struct dsa_context *context = dev->data;
+	const struct dsa_api *api = (const struct dsa_api *)context->dapi;
+
+	// similar to dsa_lag_map in linux kernel
+	// map LAG structure to linear LAG array
+	struct dsa_lag new_lag = {0};
+	for (int i = 0; i < sizeof(context->lag_ids) / sizeof(context->lag_ids[0]); i++) {
+		// check if already existing valid LAG
+		if (context->lag_ids[i] == lag_id && context->lag_ids[i] > 0) {
+			new_lag.id = lag_id;
+			new_lag.is_valid = true;
+			break;
+		} else if (context->lag_ids[i] == 0) {
+			// add new LAG
+			context->lag_ids[i] = lag_id;
+			new_lag.id = lag_id;
+			new_lag.is_valid = true;
+			break;
+		}
+	}
+
+	if (!new_lag.is_valid) {
+		return -ENOMEM; // could not find or create LAG to add to context
+	}
+
+	context->lags[port] = new_lag;
+	return api->port_lag_join(dev, port, new_lag);
+}
+
+/**
+ * @brief       Remove LAG group from switch
+ *
+ * @param 		iface 		   DSA interface
+ * @param 		port 	   Port to remove LAG group from
+ *
+ * @return 		0 if successful, negative if error
+ */
+int dsa_switch_lag_leave(struct net_if *iface, int port, unsigned int lag_id)
+{
+	const struct device *dev = net_if_get_device(iface);
+	struct dsa_context *context = dev->data;
+	const struct dsa_api *api = context->dapi;
+
+	struct dsa_lag old_lag;
+	old_lag.id = lag_id;
+	old_lag.is_valid = false;
+
+	// check existing LAG group
+	struct dsa_lag *port_lag = &context->lags[port];
+	if (!(port_lag->is_valid || port_lag->id == 0)) {
+		return -ENOTSUP; // no LAG group to remove
+	} else if (port_lag->id != old_lag.id) {
+		return -ENOTSUP; // wrong LAG group to remove given for the port
+	}
+	// edit existing LAG group
+	port_lag->is_valid = false;
+	port_lag->id = 0;
+
+	// search any other ports are members of LAG
+	bool is_unused_lag = true; // check if LAG is not used by any port anymore
+	for (int i = 0; i < sizeof(context->lags) / sizeof(context->lags[0]); i++) {
+		// check every port LAG and check if it is in the same LAG
+		struct dsa_lag *existing_lag = &context->lags[i];
+		if (existing_lag->is_valid && existing_lag->id == old_lag.id) {
+			is_unused_lag = false;
+		}
+	}
+	if (is_unused_lag) {
+		// remove LAG from array of LAG IDs
+		for (int i = 0; i < sizeof(context->lag_ids) / sizeof(context->lag_ids[0]); i++) {
+			if (context->lag_ids[i] == old_lag.id) {
+				context->lag_ids[i] = 0;
+				break;
+			}
+		}
+	}
+
+	return api->port_lag_leave(dev, port, old_lag);
+}
+
+/**
+ * @brief       Change LAG group to switch
+ *
+ * @param 		iface 		   DSA interface
+ * @param 		port 	   Port to change LAG group on
+ * @param 		lag 	   LAG group ID
+ *
+ * @return 		0 if successful, negative if error
+ */
+int dsa_switch_lag_change(struct net_if *iface, int port, unsigned int lag_id)
+{
+	const struct device *dev = net_if_get_device(iface);
+	struct dsa_context *context = dev->data;
+	const struct dsa_api *api = (const struct dsa_api *)context->dapi;
+
+	struct dsa_lag old_lag = {0};
+	old_lag.id = lag_id;
+	old_lag.is_valid = true;
+
+	// check existing LAG group
+	struct dsa_lag *port_lag = &context->lags[port];
+	if (!(port_lag->is_valid || port_lag->id == 0)) {
+		return -ENOTSUP; // no LAG group to remove
+	} else if (port_lag->id != old_lag.id) {
+		return -ENOTSUP; // wrong LAG group to remove given for the port
+	}
+	// edit existing LAG group
+	unsigned int old_lag_id = port_lag->id;
+	port_lag->id = lag_id;
+
+	// search any other ports are members of old LAG
+	bool is_unused_lag = true; // check if LAG is not used by any port anymore
+	for (int i = 0; i < sizeof(context->lags) / sizeof(context->lags[0]); i++) {
+		// check every port LAG and check if it is in the same LAG
+		struct dsa_lag *existing_lag = &context->lags[i];
+		if (existing_lag->is_valid && existing_lag->id == old_lag_id) {
+			is_unused_lag = false;
+		}
+	}
+	if (is_unused_lag) {
+		// remove LAG from array of LAG IDs
+		for (int i = 0; i < sizeof(context->lag_ids) / sizeof(context->lag_ids[0]); i++) {
+			if (context->lag_ids[i] == old_lag_id) {
+				context->lag_ids[i] = 0;
+				break;
+			}
+		}
+	}
+
+	return api->port_lag_change(dev, port);
 }

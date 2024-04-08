@@ -121,6 +121,12 @@ bool dsa_is_port_master(struct net_if *iface);
  * public documentation.
  */
 
+/** DSA Link Aggregation */
+struct dsa_lag {
+	int id;
+	bool is_valid;
+};
+
 /** DSA context data */
 struct dsa_context {
 	/** Pointers to all DSA slave network interfaces */
@@ -143,6 +149,21 @@ struct dsa_context {
 
 	/** Instance specific data */
 	void *prv_data;
+
+	/** Link Aggregation*/
+	/* Should set this to the maximum number of
+	 * supported IDs. However we don't want to use heap memory if we can
+	 * Hence we'll leave this as documentation but in future, we will statically allocate the
+	 * `lags` array
+	 */
+	// unsigned int num_lag_ids;
+	/* Maps offloaded LAG netdevs to a zero-based linear ID for
+	 * drivers that need it.
+	 */
+	struct dsa_lag lags[11]; // LAG per port
+	// nominally 32 LAG IDs supported but don't have cascaded switch, maximum is 11
+	// LAG IDs in total - saves having to create a list from iterating `lags` member
+	unsigned int lag_ids[11];
 };
 
 /**
@@ -203,6 +224,28 @@ struct dsa_api {
 	 */
 	int (*port_fdb_del)(const struct device *dev, int port, const unsigned char *addr,
 			    uint16_t vid);
+
+	/*
+	 * LAG integration
+	 */
+	int (*port_lag_change)(const struct device *dev, int port);
+	int (*port_lag_join)(const struct device *dev, int port, struct dsa_lag lag);
+	int (*port_lag_leave)(const struct device *dev, int port, struct dsa_lag lag);
+};
+
+/**
+ * @brief Structure to provide mac address for each LAN interface
+ */
+struct dsa_slave_config {
+	/** MAC address for each LAN{123.,} ports */
+	uint8_t mac_addr[6];
+};
+
+/**
+ * @brief Structure to configuration on the global switch
+ */
+// TODO: should this contain LAG information?
+struct dsa_master_config {
 };
 
 /**
@@ -337,12 +380,35 @@ int dsa_port_vlan_add(struct net_if *iface, int port, uint16_t vid, bool untagge
 int dsa_port_vlan_del(struct net_if *iface, int port, uint16_t vid);
 
 /**
- * @brief Structure to provide mac address for each LAN interface
+ * @brief       Add LAG group to switch
+ *
+ * @param 		iface 		   DSA interface
+ * @param 		lag_id 	   	   LAG group ID
+ *
+ * @return 		0 if successful, negative if error
  */
-struct dsa_slave_config {
-	/** MAC address for each LAN{123.,} ports */
-	uint8_t mac_addr[6];
-};
+int dsa_switch_lag_join(struct net_if *iface, int port, unsigned int lag_id);
+
+/**
+ * @brief       Remove LAG group from switch
+ *
+ * @param 		iface 		   DSA interface
+ * @param 		port 	   Port to remove LAG group from
+ *
+ * @return 		0 if successful, negative if error
+ */
+int dsa_switch_lag_leave(struct net_if *iface, int port, unsigned int lag_id);
+
+/**
+ * @brief       Change LAG group to switch
+ *
+ * @param 		iface 		   DSA interface
+ * @param 		port 	   Port to change LAG group on
+ * @param 		lag 	   LAG group ID
+ *
+ * @return 		0 if successful, negative if error
+ */
+int dsa_switch_lag_change(struct net_if *iface, int port, unsigned int lag_id);
 
 #ifdef __cplusplus
 }
