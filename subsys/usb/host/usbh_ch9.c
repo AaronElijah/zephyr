@@ -10,7 +10,7 @@
 #include <zephyr/usb/usbh.h>
 #include <zephyr/usb/usb_ch9.h>
 #include <zephyr/sys/byteorder.h>
-#include <zephyr/net/buf.h>
+#include <zephyr/net_buf.h>
 
 #include "usbh_device.h"
 
@@ -85,7 +85,7 @@ buf_alloc_err:
 
 int usbh_req_desc(struct usb_device *const udev,
 		  const uint8_t type, const uint8_t index,
-		  const uint8_t id,
+		  const uint16_t id,
 		  const uint16_t len,
 		  struct net_buf *const buf)
 {

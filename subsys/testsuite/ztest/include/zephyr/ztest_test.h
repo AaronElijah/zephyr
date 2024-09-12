@@ -18,6 +18,17 @@
 #include <zephyr/sys/iterable_sections.h>
 #include <stdbool.h>
 
+
+/**
+ * @defgroup ztest_test Ztest testing macros
+ * @ingroup ztest
+ *
+ * This module eases the testing process by providing helpful macros and other
+ * testing structures.
+ *
+ * @{
+ */
+
 #if defined(CONFIG_USERSPACE)
 #define __USERSPACE_FLAGS (K_USER)
 #else
@@ -107,6 +118,7 @@ struct ztest_unit_test {
 
 extern struct ztest_unit_test _ztest_unit_test_list_start[];
 extern struct ztest_unit_test _ztest_unit_test_list_end[];
+/** Number of registered unit tests */
 #define ZTEST_TEST_COUNT (_ztest_unit_test_list_end - _ztest_unit_test_list_start)
 
 /**
@@ -200,16 +212,18 @@ struct ztest_suite_node {
 
 extern struct ztest_suite_node _ztest_suite_node_list_start[];
 extern struct ztest_suite_node _ztest_suite_node_list_end[];
+
+/** Number of registered test suites */
 #define ZTEST_SUITE_COUNT (_ztest_suite_node_list_end - _ztest_suite_node_list_start)
 
 /**
- * Create and register a ztest suite. Using this macro creates a new test suite (using
- * ztest_test_suite). It then creates a struct ztest_suite_node in a specific linker section.
+ * Create and register a ztest suite. Using this macro creates a new test suite.
+ * It then creates a struct ztest_suite_node in a specific linker section.
  *
  * Tests can then be run by calling ztest_run_test_suites(const void *state) by passing
  * in the current state. See the documentation for ztest_run_test_suites for more info.
  *
- * @param SUITE_NAME The name of the suite (see ztest_test_suite for more info)
+ * @param SUITE_NAME The name of the suite
  * @param PREDICATE A function to test against the state and determine if the test should run.
  * @param setup_fn The setup function to call before running this test suite
  * @param before_fn The function to call before each unit test in this suite
@@ -232,8 +246,11 @@ extern struct ztest_suite_node _ztest_suite_node_list_end[];
  * Default entry point for running or listing registered unit tests.
  *
  * @param state The current state of the machine as it relates to the test executable.
+ * @param shuffle Shuffle tests
+ * @param suite_iter Test suite repetitions.
+ * @param case_iter Test case repetitions.
  */
-void ztest_run_all(const void *state);
+void ztest_run_all(const void *state, bool shuffle, int suite_iter, int case_iter);
 
 /**
  * The result of the current running test. It's possible that the setup function sets the result
@@ -265,18 +282,25 @@ enum ztest_phase {
  * Run the registered unit tests which return true from their predicate function.
  *
  * @param state The current state of the machine as it relates to the test executable.
+ * @param shuffle Shuffle tests
+ * @param suite_iter Test suite repetitions.
+ * @param case_iter Test case repetitions.
  * @return The number of tests that ran.
  */
 
 #ifdef ZTEST_UNITTEST
-int z_impl_ztest_run_test_suites(const void *state);
-static inline int ztest_run_test_suites(const void *state)
+int z_impl_ztest_run_test_suites(const void *state, bool shuffle,
+				int suite_iter, int case_iter);
+
+static inline int ztest_run_test_suites(const void *state, bool shuffle,
+				int suite_iter, int case_iter)
 {
-	return z_impl_ztest_run_test_suites(state);
+	return z_impl_ztest_run_test_suites(state, shuffle, suite_iter, case_iter);
 }
 
 #else
-__syscall int ztest_run_test_suites(const void *state);
+__syscall int ztest_run_test_suites(const void *state, bool shuffle,
+				int suite_iter, int case_iter);
 #endif
 
 #ifdef ZTEST_UNITTEST
@@ -315,9 +339,14 @@ void ztest_verify_all_test_suites_ran(void);
  * checks for fast failures and initialization.
  *
  * @param name The name of the suite to run.
+ * @param shuffle Shuffle tests
+ * @param suite_iter Test suite repetitions.
+ * @param case_iter Test case repetitions.
+ * @param param Parameter passing into test.
  * @return Negative value if the test suite never ran; otherwise, return the number of failures.
  */
-int z_ztest_run_test_suite(const char *name);
+int z_ztest_run_test_suite(const char *name, bool shuffle, int suite_iter,
+			int case_iter, void *param);
 
 /**
  * @brief Returns next test within suite.
@@ -331,8 +360,17 @@ struct ztest_unit_test *z_ztest_get_next_test(const char *suite, struct ztest_un
 
 /* definitions for use with testing application shared memory   */
 #ifdef CONFIG_USERSPACE
+/**
+ * @brief Make data section used by Ztest userspace accessible
+ */
 #define ZTEST_DMEM K_APP_DMEM(ztest_mem_partition)
+/**
+ * @brief Make bss section used by Ztest userspace accessible
+ */
 #define ZTEST_BMEM K_APP_BMEM(ztest_mem_partition)
+/**
+ * @brief Ztest data section for accessing data from userspace
+ */
 #define ZTEST_SECTION K_APP_DMEM_SECTION(ztest_mem_partition)
 extern struct k_mem_partition ztest_mem_partition;
 #else
@@ -340,16 +378,6 @@ extern struct k_mem_partition ztest_mem_partition;
 #define ZTEST_BMEM
 #define ZTEST_SECTION .data
 #endif
-
-/**
- * @defgroup ztest_test Ztest testing macros
- * @ingroup ztest
- *
- * This module eases the testing process by providing helpful macros and other
- * testing structures.
- *
- * @{
- */
 
 /**
  * @brief Fail the currently running test.
@@ -377,6 +405,26 @@ void ztest_test_skip(void);
 
 
 void ztest_skip_failed_assumption(void);
+
+#define Z_TEST_P(suite, fn, t_options) \
+	struct ztest_unit_test_stats z_ztest_unit_test_stats_##suite##_##fn; \
+	static void _##suite##_##fn##_wrapper(void *data); \
+	static void suite##_##fn(void *data); \
+	static STRUCT_SECTION_ITERABLE(ztest_unit_test, z_ztest_unit_test__##suite##__##fn) = { \
+		.test_suite_name = STRINGIFY(suite), \
+		.name = STRINGIFY(fn), \
+		.test = (_##suite##_##fn##_wrapper), \
+		.thread_options = t_options, \
+		.stats = &z_ztest_unit_test_stats_##suite##_##fn \
+	}; \
+	static void _##suite##_##fn##_wrapper(void *wrapper_data) \
+	{ \
+		 suite##_##fn(wrapper_data); \
+	} \
+	static inline void suite##_##fn(void *data)
+
+
+#define ZTEST_P(suite, fn) Z_TEST_P(suite, fn, 0)
 
 #define Z_TEST(suite, fn, t_options, use_fixture)                                                  \
 	struct ztest_unit_test_stats z_ztest_unit_test_stats_##suite##_##fn;                       \
@@ -448,7 +496,7 @@ void ztest_skip_failed_assumption(void);
  * @brief Define a test function
  *
  * This macro behaves exactly the same as ZTEST(), but the function takes an argument for the
- * fixture of type `struct suite##_fixture*` named `this`.
+ * fixture of type `struct suite##_fixture*` named `fixture`.
  *
  * @param suite The name of the test suite to attach this test
  * @param fn The test function to call.
@@ -459,7 +507,7 @@ void ztest_skip_failed_assumption(void);
  * @brief Define a test function that should run as a user thread
  *
  * If CONFIG_USERSPACE is not enabled, this is functionally identical to ZTEST_F(). The test
- * function takes a single fixture argument of type `struct suite##_fixture*` named `this`.
+ * function takes a single fixture argument of type `struct suite##_fixture*` named `fixture`.
  *
  * @param suite The name of the test suite to attach this test
  * @param fn The test function to call.
@@ -533,15 +581,20 @@ void ztest_simple_1cpu_after(void *data);
  * @brief Run the specified test suite.
  *
  * @param suite Test suite to run.
+ * @param shuffle Shuffle tests
+ * @param suite_iter Test suite repetitions.
+ * @param case_iter Test case repetitions.
+ * @param param Test parameter
  */
-#define ztest_run_test_suite(suite) z_ztest_run_test_suite(STRINGIFY(suite))
+#define ztest_run_test_suite(suite, shuffle, suite_iter, case_iter, param) \
+	z_ztest_run_test_suite(STRINGIFY(suite), shuffle, suite_iter, case_iter, param)
 
 /**
  * @brief Structure for architecture specific APIs
  *
  */
 struct ztest_arch_api {
-	void (*run_all)(const void *state);
+	void (*run_all)(const void *state, bool shuffle, int suite_iter, int case_iter);
 	bool (*should_suite_run)(const void *state, struct ztest_suite_node *suite);
 	bool (*should_test_run)(const char *suite, const char *test);
 };
@@ -560,7 +613,7 @@ __syscall void sys_clock_tick_set(uint64_t tick);
 #endif
 
 #ifndef ZTEST_UNITTEST
-#include <syscalls/ztest_test.h>
+#include <zephyr/syscalls/ztest_test.h>
 #endif
 
 #endif /* ZEPHYR_TESTSUITE_ZTEST_TEST_H_ */

@@ -3,8 +3,8 @@
 TSC Project Roles
 *****************
 
-Main Roles
-##########
+Project Roles
+#############
 
 TSC projects generally will involve *Maintainers*, *Collaborators*, and
 *Contributors*:
@@ -71,6 +71,8 @@ Contributor change requests or approval on pull requests are not counted with
 respect to accepting and merging a pull request. However, Contributors comments
 and requested changes should still be considered by the pull request author.
 
+.. _collaborator:
+
 Collaborator
 ++++++++++++
 
@@ -104,6 +106,9 @@ assignee to advance the review process and resolve any disagreements.
 Collaborator approval of pull requests are counted toward the minimum required
 approvals needed to merge a PR. Other criteria for merging may apply.
 
+
+.. _maintainer:
+
 Maintainer
 ++++++++++
 
@@ -123,10 +128,14 @@ in addition to those listed for Contributors and Collaborators:
 * Responsibility to ensure all contributions of the project have been reviewed
   within reasonable time.
 * Responsibility to enforce the code of conduct.
+* Responsibility to triage static analysis issues in their code area.
+  See :ref:`static_analysis`.
 
 Contributors or Collaborators are promoted to the Maintainer role by adding the
 GitHub user name to one or more ``maintainers`` sections of the
-:ref:`maintainers_file` in the Zephyr repository.
+:ref:`maintainers_file` in the Zephyr repository. Candidates who are neither
+Contributors nor Collaborators must be approved by the TSC before they can
+assume the role of Maintainer.
 
 Maintainer approval of pull requests are counted toward the minimum
 required approvals needed to merge a PR. Other criteria for merging may apply.
@@ -157,6 +166,7 @@ Assignees are set either automatically based on the code being changed or set
 by the other Maintainers, the Release Engineering team can set an assignee when
 the latter is not possible.
 
+* Responsibility to drive the pull request to a mergeable state
 * Right to dismiss stale and unrelated reviews or reviews not following
   :ref:`expectations <reviewer-expectations>` from reviewers and seek reviews
   from additional maintainers, developers and contributors
@@ -164,9 +174,28 @@ the latter is not possible.
   requested are addressed
 * Responsibility to re-assign a pull request if they are the original submitter
   of the code
-* Responsibility to drive the pull request to a mergeable state
 * Solicit approvals from maintainers of the subsystems affected
 * Responsibility to drive the :ref:`pr_technical_escalation` process
+
+Static Analysis Audit Team
+++++++++++++++++++++++++++
+
+The Static Analysis Audit team works closely with the release engineering
+team to ensure that static analysis defects opened during a release
+cycle are properly addressed. The team has the following rights and
+responsibilities:
+
+* Right to revert any triage in a static analysis tool (e.g: Coverity)
+  that does not follow the project expectations.
+* Responsibility to inform code owners about improper classifications.
+* Responsibility to alert TSC if any issues are not adequately addressed by the
+  responsible code owners.
+
+Joining the Static Analysis Audit team
+
+* Contributors highly involved in the project with some expertise
+  in static analysis.
+
 
 .. _release-engineering-team:
 

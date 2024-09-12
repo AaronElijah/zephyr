@@ -5,6 +5,7 @@
  */
 
 #include <zephyr/drivers/spi.h>
+#include <zephyr/drivers/spi/rtio.h>
 #include <zephyr/drivers/pinctrl.h>
 #include <zephyr/drivers/gpio.h>
 #include <soc.h>
@@ -268,6 +269,9 @@ static const struct spi_driver_api spi_nrfx_driver_api = {
 #ifdef CONFIG_SPI_ASYNC
 	.transceive_async = spi_nrfx_transceive_async,
 #endif
+#ifdef CONFIG_SPI_RTIO
+	.iodev_submit = spi_rtio_iodev_default_submit,
+#endif
 	.release = spi_nrfx_release,
 };
 
@@ -399,18 +403,9 @@ static int spi_nrfx_init(const struct device *dev)
 			    CONFIG_SPI_INIT_PRIORITY,			       \
 			    &spi_nrfx_driver_api)
 
-#ifdef CONFIG_HAS_HW_NRF_SPIS0
-SPI_NRFX_SPIS_DEFINE(0);
-#endif
+/* Macro creates device instance if it is enabled in devicetree. */
+#define SPIS_DEVICE(periph, prefix, id, _) \
+	IF_ENABLED(CONFIG_HAS_HW_NRF_SPIS##prefix##id, (SPI_NRFX_SPIS_DEFINE(prefix##id);))
 
-#ifdef CONFIG_HAS_HW_NRF_SPIS1
-SPI_NRFX_SPIS_DEFINE(1);
-#endif
-
-#ifdef CONFIG_HAS_HW_NRF_SPIS2
-SPI_NRFX_SPIS_DEFINE(2);
-#endif
-
-#ifdef CONFIG_HAS_HW_NRF_SPIS3
-SPI_NRFX_SPIS_DEFINE(3);
-#endif
+/* Macro iterates over nrfx_spis instances enabled in the nrfx_config.h. */
+NRFX_FOREACH_ENABLED(SPIS, SPIS_DEVICE, (), (), _)

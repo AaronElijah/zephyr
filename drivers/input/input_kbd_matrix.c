@@ -12,6 +12,9 @@
 #include <zephyr/kernel.h>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
+#include <zephyr/pm/device.h>
+#include <zephyr/pm/device_runtime.h>
+#include <zephyr/sys/atomic.h>
 #include <zephyr/sys/util.h>
 
 LOG_MODULE_REGISTER(input_kbd_matrix, CONFIG_INPUT_LOG_LEVEL);
@@ -80,6 +83,17 @@ static void input_kbd_matrix_drive_column(const struct device *dev, int col)
 #endif
 }
 
+static bool input_kbd_matrix_is_suspended(const struct device *dev)
+{
+#ifdef CONFIG_PM_DEVICE
+	struct input_kbd_matrix_common_data *data = dev->data;
+
+	return atomic_get(&data->suspended) == 1;
+#else
+	return false;
+#endif
+}
+
 static bool input_kbd_matrix_scan(const struct device *dev)
 {
 	const struct input_kbd_matrix_common_config *cfg = dev->config;
@@ -88,6 +102,16 @@ static bool input_kbd_matrix_scan(const struct device *dev)
 	kbd_row_t key_event = 0U;
 
 	for (int col = 0; col < cfg->col_size; col++) {
+		if (cfg->actual_key_mask != NULL &&
+		    cfg->actual_key_mask[col] == 0) {
+			continue;
+		}
+
+		if (input_kbd_matrix_is_suspended(dev)) {
+			cfg->matrix_new_state[col] = 0;
+			continue;
+		};
+
 		input_kbd_matrix_drive_column(dev, col);
 
 		/* Allow the matrix to stabilize before reading it */
@@ -212,7 +236,7 @@ static bool input_kbd_matrix_check_key_events(const struct device *dev)
 	key_pressed = input_kbd_matrix_scan(dev);
 
 	for (int c = 0; c < cfg->col_size; c++) {
-		LOG_DBG("c=%2d u=" PRIkbdrow " p=" PRIkbdrow " n=" PRIkbdrow,
+		LOG_DBG("c=%2d u=%" PRIkbdrow " p=%" PRIkbdrow " n=%" PRIkbdrow,
 			c,
 			cfg->matrix_unstable_state[c],
 			cfg->matrix_previous_state[c],
@@ -288,14 +312,16 @@ static void input_kbd_matrix_polling_thread(void *arg1, void *unused2, void *unu
 	ARG_UNUSED(unused3);
 
 	while (true) {
-		input_kbd_matrix_drive_column(dev, INPUT_KBD_MATRIX_COLUMN_DRIVE_ALL);
-		api->set_detect_mode(dev, true);
+		if (!input_kbd_matrix_is_suspended(dev)) {
+			input_kbd_matrix_drive_column(dev, INPUT_KBD_MATRIX_COLUMN_DRIVE_ALL);
+			api->set_detect_mode(dev, true);
 
-		/* Check the rows again after enabling the interrupt to catch
-		 * any potential press since the last read.
-		 */
-		if (api->read_row(dev) != 0) {
-			input_kbd_matrix_poll_start(dev);
+			/* Check the rows again after enabling the interrupt to catch
+			 * any potential press since the last read.
+			 */
+			if (api->read_row(dev) != 0) {
+				input_kbd_matrix_poll_start(dev);
+			}
 		}
 
 		k_sem_take(&data->poll_lock, K_FOREVER);
@@ -308,18 +334,69 @@ static void input_kbd_matrix_polling_thread(void *arg1, void *unused2, void *unu
 	}
 }
 
+#ifdef CONFIG_PM_DEVICE
+int input_kbd_matrix_pm_action(const struct device *dev,
+			       enum pm_device_action action)
+{
+	struct input_kbd_matrix_common_data *data = dev->data;
+
+	switch (action) {
+	case PM_DEVICE_ACTION_SUSPEND:
+		atomic_set(&data->suspended, 1);
+		break;
+	case PM_DEVICE_ACTION_RESUME:
+		atomic_set(&data->suspended, 0);
+		break;
+	default:
+		return -ENOTSUP;
+	}
+
+	input_kbd_matrix_poll_start(dev);
+
+	return 0;
+}
+#endif
+
 int input_kbd_matrix_common_init(const struct device *dev)
 {
 	struct input_kbd_matrix_common_data *data = dev->data;
+	int ret;
 
 	k_sem_init(&data->poll_lock, 0, 1);
 
 	k_thread_create(&data->thread, data->thread_stack,
-			CONFIG_INPUT_KBD_MATRIX_THREAD_STACK_SIZE,
+			K_KERNEL_STACK_SIZEOF(data->thread_stack),
 			input_kbd_matrix_polling_thread, (void *)dev, NULL, NULL,
 			CONFIG_INPUT_KBD_MATRIX_THREAD_PRIORITY, 0, K_NO_WAIT);
 
 	k_thread_name_set(&data->thread, dev->name);
 
+	ret = pm_device_runtime_enable(dev);
+	if (ret < 0) {
+		LOG_ERR("Failed to enable runtime power management");
+		return ret;
+	}
+
 	return 0;
 }
+
+#if CONFIG_INPUT_KBD_ACTUAL_KEY_MASK_DYNAMIC
+int input_kbd_matrix_actual_key_mask_set(const struct device *dev,
+					  uint8_t row, uint8_t col, bool enabled)
+{
+	const struct input_kbd_matrix_common_config *cfg = dev->config;
+
+	if (row >= cfg->row_size || col >= cfg->col_size) {
+		return -EINVAL;
+	}
+
+	if (cfg->actual_key_mask == NULL) {
+		LOG_WRN("actual-key-mask not defined for %s", dev->name);
+		return -EINVAL;
+	}
+
+	WRITE_BIT(cfg->actual_key_mask[col], row, enabled);
+
+	return 0;
+}
+#endif

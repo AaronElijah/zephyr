@@ -58,6 +58,7 @@ struct usdhc_config {
 	const struct gpio_dt_spec pwr_gpio;
 	const struct gpio_dt_spec detect_gpio;
 	bool detect_dat3;
+	bool detect_cd;
 	bool no_180_vol;
 	uint32_t data_timeout;
 	uint32_t read_watermark;
@@ -159,6 +160,14 @@ static void card_detect_gpio_cb(const struct device *port,
 	}
 }
 
+static void imx_usdhc_select_1_8v(USDHC_Type *base, bool enable_1_8v)
+{
+#if !(defined(FSL_FEATURE_USDHC_HAS_NO_VOLTAGE_SELECT) && \
+	(FSL_FEATURE_USDHC_HAS_NO_VOLTAGE_SELECT))
+	UDSHC_SelectVoltage(base, enable_1_8v);
+#endif
+}
+
 
 static int imx_usdhc_dat3_pull(const struct usdhc_config *cfg, bool pullup)
 {
@@ -256,7 +265,7 @@ static int imx_usdhc_reset(const struct device *dev)
 {
 	const struct usdhc_config *cfg = dev->config;
 	/* Switch to default I/O voltage of 3.3V */
-	UDSHC_SelectVoltage(cfg->base, false);
+	imx_usdhc_select_1_8v(cfg->base, false);
 	USDHC_EnableDDRMode(cfg->base, false, 0U);
 #if defined(FSL_FEATURE_USDHC_HAS_SDR50_MODE) && (FSL_FEATURE_USDHC_HAS_SDR50_MODE)
 	USDHC_EnableStandardTuning(cfg->base, 0, 0, false);
@@ -271,22 +280,7 @@ static int imx_usdhc_reset(const struct device *dev)
 #endif
 
 	/* Reset data/command/tuning circuit */
-	return USDHC_Reset(cfg->base, kUSDHC_ResetAll, 100U) == true ? 0 : -ETIMEDOUT;
-}
-
-/* Wait for USDHC to gate clock when it is disabled */
-static inline void imx_usdhc_wait_clock_gate(USDHC_Type *base)
-{
-	uint32_t timeout = 1000;
-
-	while (timeout--) {
-		if (base->PRES_STATE & USDHC_PRES_STATE_SDOFF_MASK) {
-			break;
-		}
-	}
-	if (timeout == 0) {
-		LOG_WRN("SD clock did not gate in time");
-	}
+	return USDHC_Reset(cfg->base, kUSDHC_ResetAll, 1000U) == true ? 0 : -ETIMEDOUT;
 }
 
 /*
@@ -353,7 +347,7 @@ static int imx_usdhc_set_io(const struct device *dev, struct sdhc_io *ios)
 		switch (ios->signal_voltage) {
 		case SD_VOL_3_3_V:
 		case SD_VOL_3_0_V:
-			UDSHC_SelectVoltage(cfg->base, false);
+			imx_usdhc_select_1_8v(cfg->base, false);
 			break;
 		case SD_VOL_1_8_V:
 			/**
@@ -367,7 +361,7 @@ static int imx_usdhc_set_io(const struct device *dev, struct sdhc_io *ios)
 			 * 10 ms, then allow it to be gated again.
 			 */
 			/* Switch to 1.8V */
-			UDSHC_SelectVoltage(cfg->base, true);
+			imx_usdhc_select_1_8v(cfg->base, true);
 			/* Wait 10 ms- clock will be gated during this period */
 			k_msleep(10);
 			/* Force the clock on */
@@ -816,10 +810,18 @@ static int imx_usdhc_get_card_present(const struct device *dev)
 			imx_usdhc_dat3_pull(cfg, true);
 			USDHC_CardDetectByData3(cfg->base, false);
 		}
+	} else if (cfg->detect_cd) {
+		/*
+		 * Detect the card via the USDHC_CD signal internal to
+		 * the peripheral
+		 */
+		data->card_present = USDHC_DetectCardInsert(cfg->base);
 	} else if (cfg->detect_gpio.port) {
 		data->card_present = gpio_pin_get_dt(&cfg->detect_gpio) > 0;
 	} else {
-		data->card_present = USDHC_DetectCardInsert(cfg->base);
+		LOG_WRN("No card detection method configured, assuming card "
+			"is present");
+		data->card_present = true;
 	}
 	return ((int)data->card_present);
 }
@@ -1097,6 +1099,7 @@ static const struct sdhc_driver_api usdhc_api = {
 		.detect_gpio = GPIO_DT_SPEC_INST_GET_OR(n, cd_gpios, {0}),	\
 		.data_timeout = DT_INST_PROP(n, data_timeout),			\
 		.detect_dat3 = DT_INST_PROP(n, detect_dat3),			\
+		.detect_cd = DT_INST_PROP(n, detect_cd),			\
 		.no_180_vol = DT_INST_PROP(n, no_1_8_v),			\
 		.read_watermark = DT_INST_PROP(n, read_watermark),		\
 		.write_watermark = DT_INST_PROP(n, write_watermark),		\

@@ -107,7 +107,7 @@ pdm0: pdm@26000 {
 };
 
 regulators: regulator@4000 {
-	compatible = "nordic,nrf-regulators";
+	compatible = "nordic,nrf91x-regulators";
 	reg = <0x4000 0x1000>;
 	status = "okay";
 };
@@ -313,6 +313,7 @@ gpio0: gpio@842500 {
 	#gpio-cells = <2>;
 	status = "disabled";
 	port = <0>;
+	gpiote-instance = <&gpiote>;
 };
 
 rtc0: rtc@14000 {

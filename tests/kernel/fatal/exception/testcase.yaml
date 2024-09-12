@@ -31,7 +31,7 @@ tests:
       - kernel
       - userspace
     integration_platforms:
-      - mps2_an385
+      - mps2/an385
   kernel.common.stack_protection_armv8m_mpu_stack_guard:
     extra_args: CONF_FILE=prj_armv8m_mpu_stack_guard.conf
     filter: CONFIG_ARM_MPU and CONFIG_ARMV8_M_MAINLINE
@@ -40,12 +40,13 @@ tests:
       - kernel
       - userspace
     integration_platforms:
-      - mps2_an385
+      - mps2/an385
   kernel.common.stack_sentinel:
     extra_args: CONF_FILE=sentinel.conf
     platform_exclude:
       - qemu_cortex_a9 # FIXME: See issue #39948
       - hifive1        # FIXME: See issue #66070
+      - m2gl025_miv    # FIXME: See issue #66070
     tags: kernel
     integration_platforms:
       - qemu_x86

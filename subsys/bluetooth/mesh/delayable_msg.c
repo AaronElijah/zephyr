@@ -9,7 +9,7 @@
 #include <stdlib.h>
 #include <zephyr/sys/slist.h>
 
-#include <zephyr/net/buf.h>
+#include <zephyr/net_buf.h>
 #include <zephyr/bluetooth/mesh.h>
 
 #include "msg.h"
@@ -167,12 +167,14 @@ static bool push_msg_from_delayable_msgs(void)
 	sys_snode_t *node;
 	struct delayable_msg_chunk *chunk;
 	struct delayable_msg_ctx *msg = peek_pending_msg();
-	uint16_t len = msg->len;
+	uint16_t len;
 	int err;
 
 	if (!msg) {
 		return false;
 	}
+
+	len = msg->len;
 
 	NET_BUF_SIMPLE_DEFINE(buf, BT_MESH_TX_SDU_MAX);
 

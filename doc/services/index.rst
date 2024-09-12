@@ -22,13 +22,16 @@ OS Services
    tracing/index.rst
    resource_management/index.rst
    mem_mgmt/index.rst
+   net_buf/index.rst
    modbus/index.rst
    modem/index.rst
    notify.rst
    pm/index.rst
    portability/index.rst
    poweroff.rst
+   profiling/index.rst
    shell/index.rst
+   serialization/index.rst
    settings/index.rst
    smf/index.rst
    storage/index.rst

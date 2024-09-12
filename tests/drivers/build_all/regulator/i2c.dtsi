@@ -90,3 +90,20 @@ max20335@5 {
 		LDO3 {};
 	};
 };
+
+cp9314@6 {
+	compatible = "cirrus,cp9314";
+	reg = <0x6>;
+
+	cirrus,initial-switched-capacitor-mode = "2:1";
+};
+
+mpm54304@7 {
+	compatible = "mps,mpm54304";
+	reg = <0x7>;
+
+	BUCK1 {};
+	BUCK2 {};
+	BUCK3 {};
+	BUCK4 {};
+};

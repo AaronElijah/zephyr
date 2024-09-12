@@ -2,24 +2,31 @@
 #
 # Copyright (c) 2018-2022 Intel Corporation
 # Copyright 2022 NXP
+# Copyright (c) 2024 Arm Limited (or its affiliates). All rights reserved.
+#
 # SPDX-License-Identifier: Apache-2.0
 from __future__ import annotations
+from enum import Enum
 import os
 import hashlib
 import random
 import logging
 import shutil
 import glob
+import csv
 
+from twisterlib.environment import TwisterEnv
 from twisterlib.testsuite import TestCase, TestSuite
 from twisterlib.platform import Platform
-from twisterlib.error import BuildError
+from twisterlib.error import BuildError, StatusAttributeError
 from twisterlib.size_calc import SizeCalculator
+from twisterlib.statuses import TwisterStatus
 from twisterlib.handlers import (
     Handler,
     SimulationHandler,
     BinaryHandler,
     QEMUHandler,
+    QEMUWinHandler,
     DeviceHandler,
     SUPPORTED_SIMS,
     SUPPORTED_SIMS_IN_PYTEST,
@@ -44,7 +51,7 @@ class TestInstance:
         self.testsuite: TestSuite = testsuite
         self.platform: Platform = platform
 
-        self.status = None
+        self._status = TwisterStatus.NONE
         self.reason = "Unknown"
         self.metrics = dict()
         self.handler = None
@@ -56,15 +63,17 @@ class TestInstance:
 
         self.name = os.path.join(platform.name, testsuite.name)
         self.dut = None
+
         if testsuite.detailed_test_id:
-            self.build_dir = os.path.join(outdir, platform.name, testsuite.name)
+            self.build_dir = os.path.join(outdir, platform.normalized_name, testsuite.name)
         else:
             # if suite is not in zephyr, keep only the part after ".." in reconstructed dir structure
             source_dir_rel = testsuite.source_dir_rel.rsplit(os.pardir+os.path.sep, 1)[-1]
-            self.build_dir = os.path.join(outdir, platform.name, source_dir_rel, testsuite.name)
-
+            self.build_dir = os.path.join(outdir, platform.normalized_name, source_dir_rel, testsuite.name)
         self.run_id = self._get_run_id()
         self.domains = None
+        # Instance need to use sysbuild if a given suite or a platform requires it
+        self.sysbuild = testsuite.sysbuild or platform.sysbuild
 
         self.run = False
         self.testcases: list[TestCase] = []
@@ -72,9 +81,38 @@ class TestInstance:
         self.filters = []
         self.filter_type = None
 
+    def record(self, recording, fname_csv="recording.csv"):
+        if recording:
+            if self.recording is None:
+                self.recording = recording.copy()
+            else:
+                self.recording.extend(recording)
+
+            filename = os.path.join(self.build_dir, fname_csv)
+            with open(filename, "wt") as csvfile:
+                cw = csv.DictWriter(csvfile,
+                                    fieldnames = self.recording[0].keys(),
+                                    lineterminator = os.linesep,
+                                    quoting = csv.QUOTE_NONNUMERIC)
+                cw.writeheader()
+                cw.writerows(self.recording)
+
+    @property
+    def status(self) -> TwisterStatus:
+        return self._status
+
+    @status.setter
+    def status(self, value : TwisterStatus) -> None:
+        # Check for illegal assignments by value
+        try:
+            key = value.name if isinstance(value, Enum) else value
+            self._status = TwisterStatus[key]
+        except KeyError:
+            raise StatusAttributeError(self.__class__, value)
+
     def add_filter(self, reason, filter_type):
         self.filters.append({'type': filter_type, 'reason': reason })
-        self.status = "filtered"
+        self.status = TwisterStatus.FILTER
         self.reason = reason
         self.filter_type = filter_type
 
@@ -104,9 +142,9 @@ class TestInstance:
 
     def add_missing_case_status(self, status, reason=None):
         for case in self.testcases:
-            if case.status == 'started':
-                case.status = "failed"
-            elif not case.status:
+            if case.status == TwisterStatus.STARTED:
+                case.status = TwisterStatus.FAIL
+            elif case.status == TwisterStatus.NONE:
                 case.status = status
                 if reason:
                     case.reason = reason
@@ -162,51 +200,57 @@ class TestInstance:
             # command-line, then we need to run the test, not just build it.
             fixture = testsuite.harness_config.get('fixture')
             if fixture:
-                can_run = fixture in fixtures
+                can_run = fixture in map(lambda f: f.split(sep=':')[0], fixtures)
 
         return can_run
 
-    def setup_handler(self, env):
+    def setup_handler(self, env: TwisterEnv):
+        # only setup once.
         if self.handler:
             return
 
         options = env.options
-        handler = Handler(self, "")
+        common_args = (options, env.generator_cmd, not options.disable_suite_name_check)
         if options.device_testing:
-            handler = DeviceHandler(self, "device")
+            handler = DeviceHandler(self, "device", *common_args)
             handler.call_make_run = False
             handler.ready = True
         elif self.platform.simulation != "na":
             if self.platform.simulation == "qemu":
-                handler = QEMUHandler(self, "qemu")
+                if os.name != "nt":
+                    handler = QEMUHandler(self, "qemu", *common_args)
+                else:
+                    handler = QEMUWinHandler(self, "qemu", *common_args)
                 handler.args.append(f"QEMU_PIPE={handler.get_fifo()}")
                 handler.ready = True
             else:
-                handler = SimulationHandler(self, self.platform.simulation)
+                handler = SimulationHandler(self, self.platform.simulation, *common_args)
 
             if self.platform.simulation_exec and shutil.which(self.platform.simulation_exec):
                 handler.ready = True
         elif self.testsuite.type == "unit":
-            handler = BinaryHandler(self, "unit")
+            handler = BinaryHandler(self, "unit", *common_args)
             handler.binary = os.path.join(self.build_dir, "testbinary")
             if options.enable_coverage:
                 handler.args.append("COVERAGE=1")
             handler.call_make_run = False
             handler.ready = True
+        else:
+            handler = Handler(self, "", *common_args)
 
-        if handler:
-            handler.options = options
-            handler.generator_cmd = env.generator_cmd
-            handler.generator = env.generator
-            handler.suite_name_check = not options.disable_suite_name_check
         self.handler = handler
 
     # Global testsuite parameters
     def check_runnable(self, enable_slow=False, filter='buildable', fixtures=[], hardware_map=None):
 
-        # running on simulators is currently not supported on Windows
-        if os.name == 'nt' and self.platform.simulation != 'na':
-            return False
+        if os.name == 'nt':
+            # running on simulators is currently supported only for QEMU on Windows
+            if self.platform.simulation not in ('na', 'qemu'):
+                return False
+
+            # check presence of QEMU on Windows
+            if self.platform.simulation == 'qemu' and 'QEMU_BIN_PATH' not in os.environ:
+                return False
 
         # we asked for build-only on the command line
         if self.testsuite.build_only:
@@ -227,7 +271,7 @@ class TestInstance:
         if self.testsuite.harness == 'pytest':
             target_ready = bool(filter == 'runnable' or self.platform.simulation in SUPPORTED_SIMS_IN_PYTEST)
 
-        SUPPORTED_SIMS_WITH_EXEC = ['nsim', 'mdb-nsim', 'renode', 'tsim', 'native']
+        SUPPORTED_SIMS_WITH_EXEC = ['nsim', 'mdb-nsim', 'renode', 'tsim', 'native', 'simics']
         if filter != 'runnable' and \
                 self.platform.simulation in SUPPORTED_SIMS_WITH_EXEC and \
                 self.platform.simulation_exec:
@@ -310,7 +354,7 @@ class TestInstance:
 
     def get_elf_file(self) -> str:
 
-        if self.testsuite.sysbuild:
+        if self.sysbuild:
             build_dir = self.domains.get_default_domain().build_dir
         else:
             build_dir = self.build_dir

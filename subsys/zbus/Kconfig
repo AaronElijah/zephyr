@@ -37,6 +37,10 @@ config ZBUS_MSG_SUBSCRIBER_BUF_ALLOC_STATIC
 
 endchoice
 
+config ZBUS_MSG_SUBSCRIBER_NET_BUF_POOL_ISOLATION
+	default n
+	bool "Use isolated pools instead of only using the global pool."
+
 config ZBUS_MSG_SUBSCRIBER_NET_BUF_POOL_SIZE
 	default 16
 	int "The count of net_buf available to be used simutaneously."
@@ -52,6 +56,13 @@ endif # ZBUS_MSG_SUBSCRIBER
 
 config ZBUS_RUNTIME_OBSERVERS
 	bool "Runtime observers support."
+
+config ZBUS_PRIORITY_BOOST
+	bool "ZBus priority boost algorithm"
+	default y
+	help
+	  ZBus implements the Highest Locker Protocol that relies on the observers’ thread priority
+	  to determine a temporary publisher priority.
 
 config ZBUS_ASSERT_MOCK
 	bool "Zbus assert mock for test purposes."

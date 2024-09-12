@@ -23,7 +23,7 @@ LOG_MODULE_REGISTER(net_test, CONFIG_NET_CONTEXT_LOG_LEVEL);
 
 #include <zephyr/net/ethernet.h>
 #include <zephyr/net/dummy.h>
-#include <zephyr/net/buf.h>
+#include <zephyr/net_buf.h>
 #include <zephyr/net/net_ip.h>
 #include <zephyr/net/net_if.h>
 #include <zephyr/net/net_context.h>
@@ -983,7 +983,7 @@ static uint8_t *net_context_get_mac(const struct device *dev)
 		context->mac_addr[2] = 0x5E;
 		context->mac_addr[3] = 0x00;
 		context->mac_addr[4] = 0x53;
-		context->mac_addr[5] = sys_rand32_get();
+		context->mac_addr[5] = sys_rand8_get();
 	}
 
 	return context->mac_addr;

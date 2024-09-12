@@ -24,6 +24,7 @@
 
 #ifndef _ASMLANGUAGE
 
+#include <zephyr/sys/__assert.h>
 #include <zephyr/types.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -37,6 +38,8 @@ extern "C" {
 
 /**
  * @defgroup sys-util Utility Functions
+ * @since 2.4
+ * @version 0.1.0
  * @ingroup utilities
  * @{
  */
@@ -127,6 +130,29 @@ extern "C" {
 #endif /* __cplusplus */
 
 /**
+ * @brief Declare a flexible array member.
+ *
+ * This macro declares a flexible array member in a struct. The member
+ * is named @p name and has type @p type.
+ *
+ * Since C99, flexible arrays are part of the C standard, but for historical
+ * reasons many places still use an older GNU extension that is declare
+ * zero length arrays.
+ *
+ * Although zero length arrays are flexible arrays, we can't blindly
+ * replace [0] with [] because of some syntax limitations. This macro
+ * workaround these limitations.
+ *
+ * It is specially useful for cases where flexible arrays are
+ * used in unions or are not the last element in the struct.
+ */
+#define FLEXIBLE_ARRAY_DECLARE(type, name) \
+	struct { \
+		struct { } __unused_##name; \
+		type name[]; \
+	}
+
+/**
  * @brief Whether @p ptr is an element of @p array
  *
  * This macro can be seen as a slightly stricter version of @ref PART_OF_ARRAY
@@ -203,6 +229,24 @@ extern "C" {
 	})
 
 /**
+ * @brief Iterate over members of an array using an index variable
+ *
+ * @param array the array in question
+ * @param idx name of array index variable
+ */
+#define ARRAY_FOR_EACH(array, idx) for (size_t idx = 0; (idx) < ARRAY_SIZE(array); ++(idx))
+
+/**
+ * @brief Iterate over members of an array using a pointer
+ *
+ * @param array the array in question
+ * @param ptr pointer to an element of @p array
+ */
+#define ARRAY_FOR_EACH_PTR(array, ptr)                                                             \
+	for (__typeof__(*(array)) *ptr = (array); (size_t)((ptr) - (array)) < ARRAY_SIZE(array);   \
+	     ++(ptr))
+
+/**
  * @brief Validate if two entities have a compatible type
  *
  * @param a the first entity to be compared
@@ -251,13 +295,33 @@ extern "C" {
 	})
 
 /**
- * @brief Concatenate two tokens into one
+ * @brief Report the size of a struct field in bytes.
  *
- * Concatenate two tokens,  @p x and @p y, into a combined token during the preprocessor pass.
- * This can be used to, for ex., build an identifier out of two parts,
- * where one of those parts may be, for ex, a number, another macro, or a macro argument.
+ * @param type The structure containing the field of interest.
+ * @param member The field to return the size of.
+ *
+ * @return The field size.
  */
-#define CONCAT(x, y) _DO_CONCAT(x, y)
+#define SIZEOF_FIELD(type, member) sizeof((((type *)0)->member))
+
+/**
+ * @brief Concatenate input arguments
+ *
+ * Concatenate provided tokens into a combined token during the preprocessor pass.
+ * This can be used to, for ex., build an identifier out of multiple parts,
+ * where one of those parts may be, for ex, a number, another macro, or a macro argument.
+ *
+ * @param ... Tokens to concatencate
+ *
+ * @return Concatenated token.
+ */
+#define CONCAT(...) \
+	UTIL_CAT(_CONCAT_, NUM_VA_ARGS_LESS_1(__VA_ARGS__))(__VA_ARGS__)
+
+/**
+ * @brief Check if @p ptr is aligned to @p align alignment
+ */
+#define IS_ALIGNED(ptr, align) (((uintptr_t)(ptr)) % (align) == 0)
 
 /**
  * @brief Value of @p x rounded up to the next multiple of @p align.
@@ -312,13 +376,6 @@ extern "C" {
 #define DIV_ROUND_CLOSEST(n, d)	\
 	((((n) < 0) ^ ((d) < 0)) ? ((n) - ((d) / 2)) / (d) : \
 	((n) + ((d) / 2)) / (d))
-
-/**
- * @brief Ceiling function applied to @p numerator / @p divider as a fraction.
- * @deprecated Use DIV_ROUND_UP() instead.
- */
-#define ceiling_fraction(numerator, divider) __DEPRECATED_MACRO \
-	DIV_ROUND_UP(numerator, divider)
 
 #ifndef MAX
 /**
@@ -391,6 +448,30 @@ static inline bool is_power_of_two(unsigned int x)
 }
 
 /**
+ * @brief Is @p p equal to ``NULL``?
+ *
+ * Some macros may need to check their arguments against NULL to support
+ * multiple use-cases, but NULL checks can generate warnings if such a macro
+ * is used in contexts where that particular argument can never be NULL.
+ *
+ * The warnings can be triggered if:
+ * a) all macros are expanded (e.g. when using CONFIG_COMPILER_SAVE_TEMPS=y)
+ * or
+ * b) tracking of macro expansions are turned off (-ftrack-macro-expansion=0)
+ *
+ * The warnings can be circumvented by using this inline function for doing
+ * the NULL check within the macro. The compiler is still able to optimize the
+ * NULL check out at a later stage.
+ *
+ * @param p Pointer to check
+ * @return true if @p p is equal to ``NULL``, false otherwise
+ */
+static ALWAYS_INLINE bool is_null_no_warn(void *p)
+{
+	return p == NULL;
+}
+
+/**
  * @brief Arithmetic shift right
  * @param value value to shift
  * @param shift number of bits to shift
@@ -439,8 +520,8 @@ static inline void bytecpy(void *dst, const void *src, size_t size)
  * Swap @a size bytes between memory regions @a a and @a b. This is
  * guaranteed to be done byte by byte.
  *
- * @param a Pointer to the the first memory region.
- * @param b Pointer to the the second memory region.
+ * @param a Pointer to the first memory region.
+ * @param b Pointer to the second memory region.
  * @param size The number of bytes to swap.
  */
 static inline void byteswp(void *a, void *b, size_t size)
@@ -540,6 +621,36 @@ static inline uint8_t bin2bcd(uint8_t bin)
 uint8_t u8_to_dec(char *buf, uint8_t buflen, uint8_t value);
 
 /**
+ * @brief Sign extend an 8, 16 or 32 bit value using the index bit as sign bit.
+ *
+ * @param value The value to sign expand.
+ * @param index 0 based bit index to sign bit (0 to 31)
+ */
+static inline int32_t sign_extend(uint32_t value, uint8_t index)
+{
+	__ASSERT_NO_MSG(index <= 31);
+
+	uint8_t shift = 31 - index;
+
+	return (int32_t)(value << shift) >> shift;
+}
+
+/**
+ * @brief Sign extend a 64 bit value using the index bit as sign bit.
+ *
+ * @param value The value to sign expand.
+ * @param index 0 based bit index to sign bit (0 to 63)
+ */
+static inline int64_t sign_extend_64(uint64_t value, uint8_t index)
+{
+	__ASSERT_NO_MSG(index <= 63);
+
+	uint8_t shift = 63 - index;
+
+	return (int64_t)(value << shift) >> shift;
+}
+
+/**
  * @brief Properly truncate a NULL-terminated UTF-8 string
  *
  * Take a NULL-terminated UTF-8 string and ensure that if the string has been
@@ -627,7 +738,7 @@ char *utf8_lcpy(char *dst, const char *src, size_t n);
  * @brief Determine if a buffer exceeds highest address
  *
  * This macro determines if a buffer identified by a starting address @a addr
- * and length @a buflen spans a region of memory that goes beond the highest
+ * and length @a buflen spans a region of memory that goes beyond the highest
  * possible address (thereby resulting in a pointer overflow).
  *
  * @param addr Buffer starting address
@@ -638,6 +749,45 @@ char *utf8_lcpy(char *dst, const char *src, size_t n);
 #define Z_DETECT_POINTER_OVERFLOW(addr, buflen)  \
 	(((buflen) != 0) &&                        \
 	((UINTPTR_MAX - (uintptr_t)(addr)) <= ((uintptr_t)((buflen) - 1))))
+
+/**
+ * @brief XOR n bytes
+ *
+ * @param dst  Destination of where to store result. Shall be @p len bytes.
+ * @param src1 First source. Shall be @p len bytes.
+ * @param src2 Second source. Shall be @p len bytes.
+ * @param len  Number of bytes to XOR.
+ */
+static inline void mem_xor_n(uint8_t *dst, const uint8_t *src1, const uint8_t *src2, size_t len)
+{
+	while (len--) {
+		*dst++ = *src1++ ^ *src2++;
+	}
+}
+
+/**
+ * @brief XOR 32 bits
+ *
+ * @param dst  Destination of where to store result. Shall be 32 bits.
+ * @param src1 First source. Shall be 32 bits.
+ * @param src2 Second source. Shall be 32 bits.
+ */
+static inline void mem_xor_32(uint8_t dst[4], const uint8_t src1[4], const uint8_t src2[4])
+{
+	mem_xor_n(dst, src1, src2, 4U);
+}
+
+/**
+ * @brief XOR 128 bits
+ *
+ * @param dst  Destination of where to store result. Shall be 128 bits.
+ * @param src1 First source. Shall be 128 bits.
+ * @param src2 Second source. Shall be 128 bits.
+ */
+static inline void mem_xor_128(uint8_t dst[16], const uint8_t src1[16], const uint8_t src2[16])
+{
+	mem_xor_n(dst, src1, src2, 16);
+}
 
 #ifdef __cplusplus
 }
@@ -655,7 +805,7 @@ char *utf8_lcpy(char *dst, const char *src, size_t n);
 /* This is used in linker scripts so need to avoid type casting there */
 #define KB(x) ((x) << 10)
 #else
-#define KB(x) (((size_t)x) << 10)
+#define KB(x) (((size_t)(x)) << 10)
 #endif
 /** @brief Number of bytes in @p x mebibytes */
 #define MB(x) (KB(x) << 10)

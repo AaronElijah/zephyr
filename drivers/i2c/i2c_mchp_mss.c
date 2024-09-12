@@ -9,7 +9,6 @@
 #include <zephyr/drivers/i2c.h>
 #include <zephyr/irq.h>
 #include <zephyr/device.h>
-#include <soc.h>
 #include <zephyr/drivers/i2c.h>
 #include <zephyr/sys/util.h>
 #include <zephyr/irq.h>
@@ -236,6 +235,9 @@ static int mss_i2c_transfer(const struct device *dev, struct i2c_msg *msgs, uint
 static const struct i2c_driver_api mss_i2c_driver_api = {
 	.configure = mss_i2c_configure,
 	.transfer = mss_i2c_transfer,
+#ifdef CONFIG_I2C_RTIO
+	.iodev_submit = i2c_iodev_submit_fallback,
+#endif
 };
 
 static void mss_i2c_reset(const struct device *dev)

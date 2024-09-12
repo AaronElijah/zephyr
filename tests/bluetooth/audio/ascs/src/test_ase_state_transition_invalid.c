@@ -2,6 +2,7 @@
 
 /*
  * Copyright (c) 2023 Codecoup
+ * Copyright (c) 2024 Demant A/S
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -40,23 +41,46 @@ static void *test_ase_state_transition_invalid_setup(void)
 	fixture = malloc(sizeof(*fixture));
 	zassert_not_null(fixture);
 
-	memset(fixture, 0, sizeof(*fixture));
-	fixture->ase_cp = test_ase_control_point_get();
-	test_conn_init(&fixture->conn);
-	test_ase_snk_get(1, &fixture->ase_snk);
-	test_ase_src_get(1, &fixture->ase_src);
 
 	return fixture;
 }
 
 static void test_ase_state_transition_invalid_before(void *f)
 {
-	bt_bap_unicast_server_register_cb(&mock_bap_unicast_server_cb);
+	struct test_ase_state_transition_invalid_fixture *fixture =
+		(struct test_ase_state_transition_invalid_fixture *)f;
+	struct bt_bap_unicast_server_register_param param = {
+		CONFIG_BT_ASCS_MAX_ASE_SNK_COUNT,
+		CONFIG_BT_ASCS_MAX_ASE_SRC_COUNT
+	};
+	int err;
+
+	err = bt_bap_unicast_server_register(&param);
+	zassert_equal(err, 0, "unexpected err response %d", err);
+
+	err = bt_bap_unicast_server_register_cb(&mock_bap_unicast_server_cb);
+	zassert_equal(err, 0, "unexpected err response %d", err);
+
+	memset(fixture, 0, sizeof(struct test_ase_state_transition_invalid_fixture));
+	fixture->ase_cp = test_ase_control_point_get();
+	test_conn_init(&fixture->conn);
+	test_ase_snk_get(CONFIG_BT_ASCS_MAX_ASE_SNK_COUNT, &fixture->ase_snk);
+	test_ase_src_get(CONFIG_BT_ASCS_MAX_ASE_SRC_COUNT, &fixture->ase_src);
 }
 
 static void test_ase_state_transition_invalid_after(void *f)
 {
-	bt_bap_unicast_server_unregister_cb(&mock_bap_unicast_server_cb);
+	int err;
+
+	err = bt_bap_unicast_server_unregister_cb(&mock_bap_unicast_server_cb);
+	zassert_equal(err, 0, "unexpected err response %d", err);
+
+	err = bt_bap_unicast_server_unregister();
+	while (err != 0) {
+		zassert_equal(err, -EBUSY, "unexpected err response %d", err);
+		k_sleep(K_MSEC(10));
+		err = bt_bap_unicast_server_unregister();
+	}
 }
 
 static void test_ase_state_transition_invalid_teardown(void *f)
@@ -510,8 +534,9 @@ ZTEST_F(test_ase_state_transition_invalid, test_client_source_state_releasing)
 
 static void test_server_config_codec_expect_error(struct bt_bap_stream *stream)
 {
-	struct bt_audio_codec_cfg codec_cfg = BT_AUDIO_CODEC_LC3_CONFIG_16_2(
-		BT_AUDIO_LOCATION_FRONT_LEFT, BT_AUDIO_CONTEXT_TYPE_UNSPECIFIED);
+	struct bt_audio_codec_cfg codec_cfg = BT_AUDIO_CODEC_LC3_CONFIG(
+		BT_AUDIO_CODEC_CFG_FREQ_16KHZ, BT_AUDIO_CODEC_CFG_DURATION_10,
+		BT_AUDIO_LOCATION_FRONT_LEFT, 40U, 1, BT_AUDIO_CONTEXT_TYPE_UNSPECIFIED);
 	int err;
 
 	err = bt_bap_stream_reconfig(stream, &codec_cfg);

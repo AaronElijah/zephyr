@@ -6,6 +6,9 @@
 
 #define FUSE_USE_VERSION 26
 
+#undef _XOPEN_SOURCE
+#define _XOPEN_SOURCE 700
+
 #include <fuse.h>
 #include <libgen.h>
 #include <linux/limits.h>
@@ -15,6 +18,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/mount.h>
+#include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/types.h>
 
@@ -65,8 +69,15 @@ static void release_file_handle(size_t handle)
 static bool is_mount_point(const char *path)
 {
 	char dir_path[PATH_MAX];
+	size_t len;
 
-	sprintf(dir_path, "%s", path);
+	len = strlen(path);
+	if (len >=  sizeof(dir_path)) {
+		return false;
+	}
+
+	memcpy(dir_path, path, len);
+	dir_path[len] = '\0';
 	return strcmp(dirname(dir_path), "/") == 0;
 }
 

@@ -14,12 +14,11 @@
 #include <zephyr/arch/cpu.h>
 #include <zephyr/arch/common/pm_s2ram.h>
 
-#define MAGIC (0xDABBAD00)
-
 _ASM_FILE_PROLOGUE
 
+GTEXT(pm_s2ram_mark_set)
+GTEXT(pm_s2ram_mark_check_and_clear)
 GDATA(_cpu_context)
-GDATA(marker)
 
 SECTION_FUNC(TEXT, arch_pm_s2ram_suspend)
 	/*
@@ -28,6 +27,11 @@ SECTION_FUNC(TEXT, arch_pm_s2ram_suspend)
 	 * r0: address of the system_off function
 	 */
 	push	{r4-r12, lr}
+
+	/* Move system_off to protected register. */
+	mov 	r4, r0
+
+	/* Store CPU context */
 	ldr	r1, =_cpu_context
 
 	mrs	r2, msp
@@ -64,17 +68,15 @@ SECTION_FUNC(TEXT, arch_pm_s2ram_suspend)
 	str	r2, [r1, #___cpu_context_t_control_OFFSET]
 
 	/*
-	 * Set the marker to MAGIC value
+	 * Mark entering suspend to RAM.
 	 */
-	ldr	r1, =marker
-	ldr	r2, =MAGIC
-	str	r2, [r1]
+	bl pm_s2ram_mark_set
 
 	/*
 	 * Call the system_off function passed as parameter. This should never
 	 * return.
 	 */
-	blx	r0
+	blx	r4
 
 	/*
 	 * The system_off function returns here only when the powering off was
@@ -82,35 +84,33 @@ SECTION_FUNC(TEXT, arch_pm_s2ram_suspend)
 	 */
 
 	/*
-	 * Reset the marker
+	 * Reset the marking of suspend to RAM, return is ignored.
 	 */
-	ldr	r1, =marker
-	mov	r2, #0x0
-	str	r2, [r1]
+	bl pm_s2ram_mark_check_and_clear
+
+	/* Move system_off back to r0 as return value */
+	mov	r0, r4
 
 	pop	{r4-r12, lr}
 	bx	lr
 
+
 GTEXT(arch_pm_s2ram_resume)
 SECTION_FUNC(TEXT, arch_pm_s2ram_resume)
 	/*
-	 * Check if the marker is set
+	 * Check if reset occurred after suspending to RAM.
+	 * Store LR to ensure we can continue boot when we are not suspended
+	 * to RAM. In addition to LR, R0 is pushed too, to ensure "SP mod 8 = 0",
+	 * as stated by ARM rule 6.2.1.2 for AAPCS32.
 	 */
-	ldr	r0, =marker
-	ldr	r0, [r0]
-	ldr	r1, =MAGIC
-	cmp	r0, r1
+	push    {r0, lr}
+	bl      pm_s2ram_mark_check_and_clear
+	cmp	r0, #0x1
+	pop     {r0, lr}
 	beq	resume
 	bx	lr
 
 resume:
-	/*
-	 * Reset the marker
-	 */
-	ldr	r0, =marker
-	mov	r1, #0x0
-	str	r1, [r0]
-
 	/*
 	 * Restore the CPU context
 	 */

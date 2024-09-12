@@ -11,7 +11,6 @@
  */
 
 #include <zephyr/kernel.h>
-#include <zephyr/app_memory/app_memdomain.h>
 #include "utils.h"
 #include "timing_sc.h"
 
@@ -30,7 +29,7 @@ timing_t z_vrfy_timing_timestamp_get(void)
 {
 	return z_impl_timing_timestamp_get();
 }
-#include <syscalls/timing_timestamp_get_mrsh.c>
+#include <zephyr/syscalls/timing_timestamp_get_mrsh.c>
 #endif
 
 static void start_thread_entry(void *p1, void *p2, void *p3)

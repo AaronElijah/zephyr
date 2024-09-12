@@ -110,7 +110,7 @@ stat_mgmt_foreach_entry(zcbor_state_t *zse, const char *group_name, stat_mgmt_fo
 static int
 stat_mgmt_cb_encode(zcbor_state_t *zse, struct stat_mgmt_entry *entry)
 {
-	bool ok = zcbor_tstr_put_term(zse, entry->name) &&
+	bool ok = zcbor_tstr_put_term(zse, entry->name, CONFIG_MCUMGR_GRP_STAT_MAX_NAME_LEN) &&
 		  zcbor_uint32_put(zse, entry->value);
 
 	return ok ? MGMT_ERR_EOK : MGMT_ERR_EMSGSIZE;
@@ -215,7 +215,8 @@ stat_mgmt_list(struct smp_streamer *ctxt)
 	do {
 		cur = stats_group_get_next(cur);
 		if (cur != NULL) {
-			ok = zcbor_tstr_put_term(zse, cur->s_name);
+			ok = zcbor_tstr_put_term(zse, cur->s_name,
+						CONFIG_MCUMGR_GRP_STAT_MAX_NAME_LEN);
 		}
 	} while (ok && cur != NULL);
 
@@ -270,6 +271,9 @@ static struct mgmt_group stat_mgmt_group = {
 	.mg_group_id = MGMT_GROUP_ID_STAT,
 #ifdef CONFIG_MCUMGR_SMP_SUPPORT_ORIGINAL_PROTOCOL
 	.mg_translate_error = stat_mgmt_translate_error_code,
+#endif
+#ifdef CONFIG_MCUMGR_GRP_ENUM_DETAILS_NAME
+	.mg_group_name = "stat mgmt",
 #endif
 };
 

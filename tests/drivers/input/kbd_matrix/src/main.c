@@ -80,7 +80,7 @@ void input_kbd_matrix_drive_column_hook(const struct device *dev, int col)
 static void state_set_rows_by_column(kbd_row_t c0, kbd_row_t c1, kbd_row_t c2)
 {
 	memcpy(&state.rows, (kbd_row_t[]){c0, c1, c2}, sizeof(state.rows));
-	TC_PRINT("set state [" PRIkbdrow " " PRIkbdrow " " PRIkbdrow "]\n", c0, c1, c2);
+	TC_PRINT("set state [%" PRIkbdrow " %" PRIkbdrow " %" PRIkbdrow "]\n", c0, c1, c2);
 }
 
 static struct {
@@ -103,7 +103,7 @@ static int last_checked_event_count;
 	zassert_equal(_val, test_event_data.val); \
 }
 
-static void test_cb(struct input_event *evt)
+static void test_cb(struct input_event *evt, void *user_data)
 {
 	static int row, col, val;
 
@@ -128,7 +128,7 @@ static void test_cb(struct input_event *evt)
 			 test_event_data.event_count, row, col, val);
 	}
 }
-INPUT_CALLBACK_DEFINE(test_dev, test_cb);
+INPUT_CALLBACK_DEFINE(test_dev, test_cb, NULL);
 
 #define WAIT_FOR_IDLE_TIMEOUT_US (5 * USEC_PER_SEC)
 
@@ -374,6 +374,45 @@ ZTEST(kbd_scan, test_kbd_actual_keymap)
 	kbd_scan_wait_for_idle();
 	assert_no_new_events();
 }
+
+ZTEST(kbd_scan, test_kbd_actual_key_map_set)
+{
+#if CONFIG_INPUT_KBD_ACTUAL_KEY_MASK_DYNAMIC
+	kbd_row_t mask[4] = {0x00, 0xff, 0x00, 0x00};
+	const struct input_kbd_matrix_common_config cfg = {
+		.row_size = 3,
+		.col_size = 4,
+		.actual_key_mask = mask,
+	};
+	const struct device fake_dev = {
+		.config = &cfg,
+	};
+	int ret;
+
+	ret = input_kbd_matrix_actual_key_mask_set(&fake_dev, 0, 0, true);
+	zassert_equal(ret, 0);
+	zassert_equal(mask[0], 0x01);
+
+	ret = input_kbd_matrix_actual_key_mask_set(&fake_dev, 2, 1, false);
+	zassert_equal(ret, 0);
+	zassert_equal(mask[1], 0xfb);
+
+	ret = input_kbd_matrix_actual_key_mask_set(&fake_dev, 2, 3, true);
+	zassert_equal(ret, 0);
+	zassert_equal(mask[3], 0x04);
+
+	ret = input_kbd_matrix_actual_key_mask_set(&fake_dev, 3, 0, true);
+	zassert_equal(ret, -EINVAL);
+
+	ret = input_kbd_matrix_actual_key_mask_set(&fake_dev, 0, 4, true);
+	zassert_equal(ret, -EINVAL);
+
+	zassert_equal(memcmp(mask, (uint8_t[]){0x01, 0xfb, 0x00, 0x04}, 4), 0);
+#else
+	ztest_test_skip();
+#endif
+}
+
 static void *kbd_scan_setup(void)
 {
 	const struct input_kbd_matrix_common_config *cfg = test_dev->config;

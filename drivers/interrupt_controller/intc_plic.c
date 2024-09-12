@@ -17,11 +17,12 @@
 
 #include "sw_isr_common.h"
 
+#include <zephyr/debug/symtab.h>
 #include <zephyr/kernel.h>
 #include <zephyr/arch/cpu.h>
 #include <zephyr/device.h>
+#include <zephyr/devicetree/interrupt_controller.h>
 #include <zephyr/shell/shell.h>
-#include <soc.h>
 
 #include <zephyr/sw_isr_table.h>
 #include <zephyr/drivers/interrupt_controller/riscv_plic.h>
@@ -43,8 +44,8 @@
  * However, it is defined and supported by at least the Andes & Telink datasheet, and supported
  * in Linux's SiFive PLIC driver
  */
-#define PLIC_TRIG_LEVEL ((uint32_t)~BIT(0))
-#define PLIC_TRIG_EDGE ((uint32_t)BIT(0))
+#define PLIC_TRIG_LEVEL ((uint32_t)0)
+#define PLIC_TRIG_EDGE  ((uint32_t)1)
 #define PLIC_DRV_HAS_COMPAT(compat)                                                                \
 	DT_NODE_HAS_COMPAT(DT_COMPAT_GET_ANY_STATUS_OKAY(DT_DRV_COMPAT), compat)
 
@@ -76,10 +77,12 @@ struct plic_config {
 	uint32_t max_prio;
 	uint32_t num_irqs;
 	riscv_plic_irq_config_func_t irq_config_func;
+	struct _isr_table_entry *isr_table;
 };
 
 struct plic_stats {
-	uint16_t *irq_count;
+	uint16_t *const irq_count;
+	const int irq_count_len;
 };
 
 struct plic_data {
@@ -211,15 +214,11 @@ static void plic_irq_enable_set_state(uint32_t irq, bool enable)
 	for (uint32_t cpu_num = 0; cpu_num < arch_num_cpus(); cpu_num++) {
 		mem_addr_t en_addr =
 			get_context_en_addr(dev, cpu_num) + local_irq_to_reg_offset(local_irq);
-
 		uint32_t en_value;
-		uint32_t key;
 
-		key = irq_lock();
 		en_value = sys_read32(en_addr);
 		WRITE_BIT(en_value, local_irq & PLIC_REG_MASK, enable);
 		sys_write32(en_value, en_addr);
-		irq_unlock(key);
 	}
 }
 
@@ -227,7 +226,7 @@ static void plic_irq_enable_set_state(uint32_t irq, bool enable)
  * @brief Enable a riscv PLIC-specific interrupt line
  *
  * This routine enables a RISCV PLIC-specific interrupt line.
- * riscv_plic_irq_enable is called by SOC_FAMILY_RISCV_PRIVILEGED
+ * riscv_plic_irq_enable is called by RISCV_PRIVILEGED
  * arch_irq_enable function to enable external interrupts for
  * IRQS level == 2, whenever CONFIG_RISCV_HAS_PLIC variable is set.
  *
@@ -235,14 +234,18 @@ static void plic_irq_enable_set_state(uint32_t irq, bool enable)
  */
 void riscv_plic_irq_enable(uint32_t irq)
 {
+	uint32_t key = irq_lock();
+
 	plic_irq_enable_set_state(irq, true);
+
+	irq_unlock(key);
 }
 
 /**
  * @brief Disable a riscv PLIC-specific interrupt line
  *
  * This routine disables a RISCV PLIC-specific interrupt line.
- * riscv_plic_irq_disable is called by SOC_FAMILY_RISCV_PRIVILEGED
+ * riscv_plic_irq_disable is called by RISCV_PRIVILEGED
  * arch_irq_disable function to disable external interrupts, for
  * IRQS level == 2, whenever CONFIG_RISCV_HAS_PLIC variable is set.
  *
@@ -250,7 +253,11 @@ void riscv_plic_irq_enable(uint32_t irq)
  */
 void riscv_plic_irq_disable(uint32_t irq)
 {
+	uint32_t key = irq_lock();
+
 	plic_irq_enable_set_state(irq, false);
+
+	irq_unlock(key);
 }
 
 /**
@@ -292,8 +299,9 @@ void riscv_plic_set_priority(uint32_t irq, uint32_t priority)
 	const uint32_t local_irq = irq_from_level_2(irq);
 	mem_addr_t prio_addr = config->prio + (local_irq * sizeof(uint32_t));
 
-	if (priority > config->max_prio)
+	if (priority > config->max_prio) {
 		priority = config->max_prio;
+	}
 
 	sys_write32(priority, prio_addr);
 }
@@ -355,7 +363,7 @@ static void plic_irq_handler(const struct device *dev)
 		z_irq_spurious(NULL);
 	}
 
-#if IS_ENABLED(PLIC_DRV_HAS_COMPAT(andestech_nceplic100))
+#if PLIC_DRV_HAS_COMPAT(andestech_nceplic100)
 	trig_val = riscv_plic_irq_trig_val(dev, local_irq);
 	/*
 	 * Edge-triggered interrupts on Andes NCEPLIC100 have to be acknowledged first before
@@ -366,15 +374,8 @@ static void plic_irq_handler(const struct device *dev)
 	}
 #endif
 
-	const uint32_t parent_irq = COND_CODE_1(IS_ENABLED(CONFIG_DYNAMIC_INTERRUPTS),
-						(z_get_sw_isr_irq_from_device(dev)), (0U));
-	const uint32_t irq = irq_to_level_2(local_irq) | parent_irq;
-	const unsigned int isr_offset =
-		COND_CODE_1(IS_ENABLED(CONFIG_DYNAMIC_INTERRUPTS), (z_get_sw_isr_table_idx(irq)),
-			    (irq_from_level_2(irq) + CONFIG_2ND_LVL_ISR_TBL_OFFSET));
-
 	/* Call the corresponding IRQ handler in _sw_isr_table */
-	ite = (struct _isr_table_entry *)&_sw_isr_table[isr_offset];
+	ite = &config->isr_table[local_irq];
 	ite->isr(ite->arg);
 
 	/*
@@ -382,7 +383,7 @@ static void plic_irq_handler(const struct device *dev)
 	 * PLIC controller that the IRQ has been handled
 	 * for level triggered interrupts.
 	 */
-#if IS_ENABLED(PLIC_DRV_HAS_COMPAT(andestech_nceplic100))
+#if PLIC_DRV_HAS_COMPAT(andestech_nceplic100)
 	/* For NCEPLIC100, handle only if level-triggered */
 	if (trig_val == PLIC_TRIG_LEVEL) {
 		sys_write32(local_irq, claim_complete_addr);
@@ -464,11 +465,19 @@ static int cmd_get_stats(const struct shell *sh, size_t argc, char *argv[])
 		shell_print(sh, "IRQ line with > %d hits:", min_hit);
 	}
 
-	shell_print(sh, "   IRQ\t      Hits");
-	shell_print(sh, "==================");
-	for (size_t i = 0; i < MIN(config->num_irqs, CONFIG_MAX_IRQ_PER_AGGREGATOR); i++) {
+	shell_print(sh, "   IRQ        Hits\tISR(ARG)");
+	for (int i = 0; i < stat.irq_count_len; i++) {
 		if (stat.irq_count[i] > min_hit) {
-			shell_print(sh, "%6d\t%10d", i, stat.irq_count[i]);
+#ifdef CONFIG_SYMTAB
+			const char *name =
+				symtab_find_symbol_name((uintptr_t)config->isr_table[i].isr, NULL);
+
+			shell_print(sh, "  %4d  %10d\t%s(%p)", i, stat.irq_count[i], name,
+				    config->isr_table[i].arg);
+#else
+			shell_print(sh, "  %4d  %10d\t%p(%p)", i, stat.irq_count[i],
+				    (void *)config->isr_table[i].isr, config->isr_table[i].arg);
+#endif /* CONFIG_SYMTAB */
 		}
 	}
 	shell_print(sh, "");
@@ -485,12 +494,10 @@ static int cmd_clear_stats(const struct shell *sh, size_t argc, char *argv[])
 		return ret;
 	}
 
-	const struct plic_config *config = dev->config;
 	const struct plic_data *data = dev->data;
 	struct plic_stats stat = data->stats;
 
-	memset(stat.irq_count, 0,
-	       MIN(config->num_irqs, CONFIG_MAX_IRQ_PER_AGGREGATOR) * sizeof(uint16_t));
+	memset(stat.irq_count, 0, stat.irq_count_len * sizeof(uint16_t));
 
 	shell_print(sh, "Cleared stats of %s.\n", dev->name);
 
@@ -536,15 +543,16 @@ static int cmd_plic(const struct shell *sh, size_t argc, char **argv)
 SHELL_CMD_ARG_REGISTER(plic, &plic_cmds, "PLIC shell commands",
 		       cmd_plic, 2, 0);
 
+#define PLIC_MIN_IRQ_NUM(n) MIN(DT_INST_PROP(n, riscv_ndev), CONFIG_MAX_IRQ_PER_AGGREGATOR)
 #define PLIC_INTC_IRQ_COUNT_BUF_DEFINE(n)                                                          \
-	static uint16_t local_irq_count_##n[MIN(DT_INST_PROP(n, riscv_ndev),                       \
-					      CONFIG_MAX_IRQ_PER_AGGREGATOR)];
+	static uint16_t local_irq_count_##n[PLIC_MIN_IRQ_NUM(n)];
 
 #define PLIC_INTC_DATA_INIT(n)                                                                     \
 	PLIC_INTC_IRQ_COUNT_BUF_DEFINE(n);                                                         \
 	static struct plic_data plic_data_##n = {                                                  \
 		.stats = {                                                                         \
 			.irq_count = local_irq_count_##n,                                          \
+			.irq_count_len = PLIC_MIN_IRQ_NUM(n),                                      \
 		},                                                                                 \
 	};
 
@@ -574,10 +582,15 @@ SHELL_CMD_ARG_REGISTER(plic, &plic_cmds, "PLIC shell commands",
 		.max_prio = DT_INST_PROP(n, riscv_max_priority),                                   \
 		.num_irqs = DT_INST_PROP(n, riscv_ndev),                                           \
 		.irq_config_func = plic_irq_config_func_##n,                                       \
+		.isr_table = &_sw_isr_table[INTC_INST_ISR_TBL_OFFSET(n)],                          \
 	};                                                                                         \
 	PLIC_INTC_IRQ_FUNC_DEFINE(n)
 
 #define PLIC_INTC_DEVICE_INIT(n)                                                                   \
+	IRQ_PARENT_ENTRY_DEFINE(                                                                   \
+		plic##n, DEVICE_DT_INST_GET(n), DT_INST_IRQN(n),                                   \
+		INTC_INST_ISR_TBL_OFFSET(n),                                                       \
+		DT_INST_INTC_GET_AGGREGATOR_LEVEL(n));                                             \
 	PLIC_INTC_CONFIG_INIT(n)                                                                   \
 	PLIC_INTC_DATA_INIT(n)                                                                     \
 	DEVICE_DT_INST_DEFINE(n, &plic_init, NULL,                                                 \
