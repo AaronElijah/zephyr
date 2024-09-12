@@ -13,6 +13,7 @@
 
 #include <zephyr/device.h>
 #include <zephyr/net/net_if.h>
+#include <zephyr/net/phy.h>
 
 /**
  * @brief DSA definitions and helpers
@@ -26,7 +27,7 @@
 /** @cond INTERNAL_HIDDEN */
 
 #define NET_DSA_PORT_MAX_COUNT 8
-#define DSA_STATUS_PERIOD_MS K_MSEC(1000)
+#define DSA_STATUS_PERIOD_MS   K_MSEC(1000)
 
 /*
  * Size of the DSA TAG:
@@ -71,8 +72,7 @@ int dsa_tx(const struct device *dev, struct net_pkt *pkt);
  *  - NET_OK, if the packet was accepted, in this case the ownership of the
  *    net_pkt goes to callback and core network stack will forget it.
  */
-typedef enum net_verdict (*dsa_net_recv_cb_t)(struct net_if *iface,
-					      struct net_pkt *pkt);
+typedef enum net_verdict (*dsa_net_recv_cb_t)(struct net_if *iface, struct net_pkt *pkt);
 
 /**
  * @brief Register DSA Rx callback functions
@@ -127,6 +127,12 @@ bool dsa_is_port_master(struct net_if *iface);
  * public documentation.
  */
 
+/** DSA Link Aggregation */
+struct dsa_lag {
+	int id;
+	bool is_valid;
+};
+
 /** DSA context data */
 struct dsa_context {
 	/** Pointers to all DSA slave network interfaces */
@@ -149,6 +155,21 @@ struct dsa_context {
 
 	/** Instance specific data */
 	void *prv_data;
+
+	/** Link Aggregation*/
+	/* Should set this to the maximum number of
+	 * supported IDs. However we don't want to use heap memory if we can
+	 * Hence we'll leave this as documentation but in future, we will statically allocate the
+	 * `lags` array
+	 */
+	// unsigned int num_lag_ids;
+	/* Maps offloaded LAG netdevs to a zero-based linear ID for
+	 * drivers that need it.
+	 */
+	struct dsa_lag lags[11]; // LAG per port
+	// nominally 32 LAG IDs supported but don't have cascaded switch, maximum is 11
+	// LAG IDs in total - saves having to create a list from iterating `lags` member
+	unsigned int lag_ids[11];
 };
 
 /**
@@ -157,8 +178,7 @@ struct dsa_context {
  */
 struct dsa_api {
 	/** Function to get proper LAN{123} interface */
-	struct net_if *(*dsa_get_iface)(struct net_if *iface,
-					struct net_pkt *pkt);
+	struct net_if *(*dsa_get_iface)(struct net_if *iface, struct net_pkt *pkt);
 	/*
 	 * Callbacks required for DSA switch initialization and configuration.
 	 *
@@ -166,29 +186,72 @@ struct dsa_api {
 	 * dsa_context.
 	 */
 	/** Read value from DSA register */
-	int (*switch_read)(const struct device *dev, uint16_t reg_addr,
-				uint8_t *value);
+	int (*switch_read)(const struct device *dev, uint16_t reg_addr, uint8_t *value);
 	/** Write value to DSA register */
-	int (*switch_write)(const struct device *dev, uint16_t reg_addr,
-				uint8_t value);
+	int (*switch_write)(const struct device *dev, uint16_t reg_addr, uint8_t value);
 
 	/** Program (set) mac table entry in the DSA switch */
-	int (*switch_set_mac_table_entry)(const struct device *dev,
-						const uint8_t *mac,
-						uint8_t fw_port,
-						uint16_t tbl_entry_idx,
-						uint16_t flags);
+	int (*switch_set_mac_table_entry)(const struct device *dev, const uint8_t *mac,
+					  uint8_t fw_port, uint16_t tbl_entry_idx, uint16_t flags);
 
 	/** Read mac table entry from the DSA switch */
-	int (*switch_get_mac_table_entry)(const struct device *dev,
-						uint8_t *buf,
-						uint16_t tbl_entry_idx);
+	int (*switch_get_mac_table_entry)(const struct device *dev, uint8_t *buf,
+					  uint16_t tbl_entry_idx);
 
 	/*
 	 * DSA helper callbacks
 	 */
-	struct net_pkt *(*dsa_xmit_pkt)(struct net_if *iface,
-					struct net_pkt *pkt);
+	struct net_pkt *(*dsa_xmit_pkt)(struct net_if *iface, struct net_pkt *pkt);
+
+	/*
+	 * Access to the switch's PHY registers.
+	 */
+	int (*phy_read)(const struct device *dev, int port, int regnum, uint16_t *value);
+	int (*phy_write)(const struct device *dev, int port, int regnum, uint16_t value);
+
+	/** TODO: implement all phy_device API from linux to phy_link_state in zephyr */
+	/** Port enable/disable */
+	int (*port_enable)(const struct device *dev, int port, struct phy_link_state *phy);
+	int (*port_disable)(const struct device *dev, int port);
+	/** PHYLINK functions */
+	int (*phylink_mac_link_up)(const struct device *dev, int port, unsigned int mode, int speed,
+				   int duplex, bool tx_pause, bool rx_pause);
+
+	/** VLAN support */
+	int (*port_vlan_filtering)(const struct device *dev, int port, bool vlan_filtering);
+	int (*port_vlan_add)(const struct device *dev, int port, uint16_t vid, bool untagged,
+			     bool pvid);
+	int (*port_vlan_del)(
+		const struct device *dev, int port,
+		uint16_t vid); // TODO: may need to add flags, etc arguments to this functions
+
+	/*
+	 * Forwarding database
+	 */
+	int (*port_fdb_del)(const struct device *dev, int port, const unsigned char *addr,
+			    uint16_t vid);
+
+	/*
+	 * LAG integration
+	 */
+	int (*port_lag_change)(const struct device *dev, int port);
+	int (*port_lag_join)(const struct device *dev, int port, struct dsa_lag lag);
+	int (*port_lag_leave)(const struct device *dev, int port, struct dsa_lag lag);
+};
+
+/**
+ * @brief Structure to provide mac address for each LAN interface
+ */
+struct dsa_slave_config {
+	/** MAC address for each LAN{123.,} ports */
+	uint8_t mac_addr[6];
+};
+
+/**
+ * @brief Structure to configuration on the global switch
+ */
+// TODO: should this contain LAG information?
+struct dsa_master_config {
 };
 
 /**
@@ -239,11 +302,8 @@ int dsa_switch_write(struct net_if *iface, uint16_t reg_addr, uint8_t value);
  *
  * @return     0 if successful, negative if error
  */
-int dsa_switch_set_mac_table_entry(struct net_if *iface,
-					const uint8_t *mac,
-					uint8_t fw_port,
-					uint16_t tbl_entry_idx,
-					uint16_t flags);
+int dsa_switch_set_mac_table_entry(struct net_if *iface, const uint8_t *mac, uint8_t fw_port,
+				   uint16_t tbl_entry_idx, uint16_t flags);
 
 /**
  * @brief      Read static MAC table entry
@@ -254,18 +314,107 @@ int dsa_switch_set_mac_table_entry(struct net_if *iface,
  *
  * @return     0 if successful, negative if error
  */
-int dsa_switch_get_mac_table_entry(struct net_if *iface,
-					uint8_t *buf,
-					uint16_t tbl_entry_idx);
+int dsa_switch_get_mac_table_entry(struct net_if *iface, uint8_t *buf, uint16_t tbl_entry_idx);
 
 /**
- * @brief Structure to provide mac address for each LAN interface
+ * @brief      Disable switch port
+ *
+ * @param      iface          DSA interface
+ * @param      port 		  Port to disable
+ *
+ * @return     0 if successful, negative if error
  */
+int dsa_port_disable(struct net_if *iface, int port);
 
-struct dsa_slave_config {
-	/** MAC address for each LAN{123.,} ports */
-	uint8_t mac_addr[6];
-};
+/**
+ * @brief 	    Enable switch port
+ *
+ * @param 		iface 		   DSA interface
+ * @param		port		   Port to enable
+ *
+ * @return 		0 if successful, negative if error
+ */
+int dsa_port_enable(struct net_if *iface, int port);
+
+/**
+ * @brief 	    Configure MAC link on switch port
+ *
+ * @param 		iface 		   DSA interface
+ * @param		port		   Port to enable
+ * @param 		mode 		   Autonegotiation mode ('phy', 'fixed', 'inband')
+ * @param 		speed 		   Link speed (10, 100, 200, 1000, 2500, 10000)
+ * @param		duplex 	   	   Duplex mode (1 [full], 0 [half])
+ * @param 		tx_pause 	   Enable TX pause
+ * @param 		rx_pause 	   Enable RX pause
+ *
+ * @return 		0 if successful, negative if error
+ */
+int dsa_port_phylink_mac_link_up(struct net_if *iface, int port, unsigned int mode, int speed,
+				 int duplex, bool tx_pause, bool rx_pause);
+
+/**
+ * @brief 	    Enable/disable VLAN filtering on switch port
+ *
+ * @param 		iface 		   DSA interface
+ * @param		port		   Port to enable VLANs
+ * @param 		vlan_filtering Enable/disable VLAN filtering
+ *
+ * @return 		0 if successful, negative if error
+ */
+int dsa_port_vlan_filtering(struct net_if *iface, int port, bool vlan_filtering);
+
+/**
+ * @brief 		Add VLAN to switch port
+ *
+ * @param 		iface 		   DSA interface
+ * @param		port		   Port to enable
+ * @param 		vlan_id 	   VLAN ID
+ *
+ * @return 		0 if successful, negative if error
+ */
+int dsa_port_vlan_add(struct net_if *iface, int port, uint16_t vid, bool untagged, bool pvid);
+
+/**
+ * @brief        Remove VLAN from switch port
+ *
+ * @param 		iface 		   DSA interface
+ * @param		port		   Port to enable
+ * @param 		vlan_id 	   VLAN ID
+ *
+ * @return 		0 if successful, negative if error
+ */
+int dsa_port_vlan_del(struct net_if *iface, int port, uint16_t vid);
+
+/**
+ * @brief       Add LAG group to switch
+ *
+ * @param 		iface 		   DSA interface
+ * @param 		lag_id 	   	   LAG group ID
+ *
+ * @return 		0 if successful, negative if error
+ */
+int dsa_switch_lag_join(struct net_if *iface, int port, unsigned int lag_id);
+
+/**
+ * @brief       Remove LAG group from switch
+ *
+ * @param 		iface 		   DSA interface
+ * @param 		port 	   Port to remove LAG group from
+ *
+ * @return 		0 if successful, negative if error
+ */
+int dsa_switch_lag_leave(struct net_if *iface, int port, unsigned int lag_id);
+
+/**
+ * @brief       Change LAG group to switch
+ *
+ * @param 		iface 		   DSA interface
+ * @param 		port 	   Port to change LAG group on
+ * @param 		lag 	   LAG group ID
+ *
+ * @return 		0 if successful, negative if error
+ */
+int dsa_switch_lag_change(struct net_if *iface, int port, unsigned int lag_id);
 
 #ifdef __cplusplus
 }

@@ -11,7 +11,6 @@ config ETH_DSA_SUPPORT
 
 menuconfig NET_DSA
 	bool "Distributed Switch Architecture support"
-	depends on ETH_DSA_SUPPORT
 	help
 	  Enable Distributed Switch Architecture support. For now it
 	  only supports Kinetics and STM32 ENET drivers.
