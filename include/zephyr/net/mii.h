@@ -25,33 +25,33 @@
 
 /* MII management registers */
 /** Basic Mode Control Register */
-#define MII_BMCR       0x0
+#define MII_BMCR     0x0
 /** Basic Mode Status Register */
-#define MII_BMSR       0x1
+#define MII_BMSR     0x1
 /** PHY ID 1 Register */
-#define MII_PHYID1R    0x2
+#define MII_PHYID1R  0x2
 /** PHY ID 2 Register */
-#define MII_PHYID2R    0x3
+#define MII_PHYID2R  0x3
 /** Auto-Negotiation Advertisement Register */
-#define MII_ANAR       0x4
+#define MII_ANAR     0x4
 /** Auto-Negotiation Link Partner Ability Reg */
-#define MII_ANLPAR     0x5
+#define MII_ANLPAR   0x5
 /** Auto-Negotiation Expansion Register */
-#define MII_ANER       0x6
+#define MII_ANER     0x6
 /** Auto-Negotiation Next Page Transmit Register */
-#define MII_ANNPTR     0x7
+#define MII_ANNPTR   0x7
 /** Auto-Negotiation Link Partner Received Next Page Reg */
-#define MII_ANLPRNPR   0x8
+#define MII_ANLPRNPR 0x8
 /** 1000BASE-T Control Register */
-#define MII_1KTCR      0x9
+#define MII_1KTCR    0x9
 /** 1000BASE-T Status Register */
-#define MII_1KSTSR     0xa
+#define MII_1KSTSR   0xa
 /** MMD Access Control Register */
-#define MII_MMD_ACR    0xd
+#define MII_MMD_ACR  0xd
 /** MMD Access Address Data Register */
-#define MII_MMD_AADR   0xe
+#define MII_MMD_AADR 0xe
 /** Extended Status Register */
-#define MII_ESTAT      0xf
+#define MII_ESTAT    0xf
 
 /* Basic Mode Control Register (BMCR) bit definitions */
 #define MII_BMCR_RESET_BIT           15
@@ -92,35 +92,43 @@
 
 /* Basic Mode Status Register (BMSR) bit definitions */
 /** 100BASE-T4 capable */
-#define MII_BMSR_100BASE_T4        BIT(15)
+#define MII_BMSR_100BASE_T4       BIT(15)
 /** 100BASE-X full duplex capable */
-#define MII_BMSR_100BASE_X_FULL    BIT(14)
+#define MII_BMSR_100BASE_X_FULL   BIT(14)
 /** 100BASE-X half duplex capable */
-#define MII_BMSR_100BASE_X_HALF    BIT(13)
+#define MII_BMSR_100BASE_X_HALF   BIT(13)
 /** 10 Mb/s full duplex capable */
-#define MII_BMSR_10_FULL           BIT(12)
+#define MII_BMSR_10_FULL          BIT(12)
 /** 10 Mb/s half duplex capable */
-#define MII_BMSR_10_HALF           BIT(11)
+#define MII_BMSR_10_HALF          BIT(11)
 /** 100BASE-T2 full duplex capable */
-#define MII_BMSR_100BASE_T2_FULL   BIT(10)
+#define MII_BMSR_100BASE_T2_FULL  BIT(10)
 /** 100BASE-T2 half duplex capable */
-#define MII_BMSR_100BASE_T2_HALF   BIT(9)
+#define MII_BMSR_100BASE_T2_HALF  BIT(9)
 /** extend status information in reg 15 */
-#define MII_BMSR_EXTEND_STATUS     BIT(8)
+#define MII_BMSR_EXTEND_STATUS    BIT(8)
 /** PHY accepts management frames with preamble suppressed */
-#define MII_BMSR_MF_PREAMB_SUPPR   BIT(6)
+#define MII_BMSR_MF_PREAMB_SUPPR  BIT(6)
 /** Auto-negotiation process completed */
-#define MII_BMSR_AUTONEG_COMPLETE  BIT(5)
+#define MII_BMSR_AUTONEG_COMPLETE BIT(5)
 /** remote fault detected */
-#define MII_BMSR_REMOTE_FAULT      BIT(4)
+#define MII_BMSR_REMOTE_FAULT     BIT(4)
 /** PHY is able to perform Auto-Negotiation */
-#define MII_BMSR_AUTONEG_ABILITY   BIT(3)
+#define MII_BMSR_AUTONEG_ABILITY  BIT(3)
 /** link is up */
-#define MII_BMSR_LINK_STATUS       BIT(2)
+#define MII_BMSR_LINK_STATUS      BIT(2)
 /** jabber condition detected */
-#define MII_BMSR_JABBER_DETECT     BIT(1)
+#define MII_BMSR_JABBER_DETECT    BIT(1)
 /** extended register capabilities */
-#define MII_BMSR_EXTEND_CAPAB      BIT(0)
+#define MII_BMSR_EXTEND_CAPAB     BIT(0)
+
+/* PHY ID 2 Register bit definitions */
+/** PHY identifier */
+#define MII_PHYID2R_PHY_ID      (0x3f << 10)
+/** Manufacture's Model Number */
+#define MII_PHYID2R_MANUF_MODEL (0x3f << 4)
+/** Revision Number */
+#define MII_PHYID2R_REVISION    (0x0f << 0)
 
 /* Auto-negotiation Advertisement Register (ANAR) bit definitions */
 /* Auto-negotiation Link Partner Ability Register (ANLPAR) bit definitions */
@@ -168,19 +176,19 @@
 #define MII_ADVERTISE_1000_HALF     BIT(MII_ADVERTISE_1000_HALF_BIT)
 
 /** Advertise all speeds */
-#define MII_ADVERTISE_ALL (MII_ADVERTISE_10_HALF | MII_ADVERTISE_10_FULL |\
-			   MII_ADVERTISE_100_HALF | MII_ADVERTISE_100_FULL |\
-			   MII_ADVERTISE_SEL_IEEE_802_3)
+#define MII_ADVERTISE_ALL                                                                          \
+	(MII_ADVERTISE_10_HALF | MII_ADVERTISE_10_FULL | MII_ADVERTISE_100_HALF |                  \
+	 MII_ADVERTISE_100_FULL | MII_ADVERTISE_SEL_IEEE_802_3)
 
 /* Extended Status Register bit definitions */
 /** 1000BASE-X full-duplex capable */
-#define MII_ESTAT_1000BASE_X_FULL  BIT(15)
+#define MII_ESTAT_1000BASE_X_FULL BIT(15)
 /** 1000BASE-X half-duplex capable */
-#define MII_ESTAT_1000BASE_X_HALF  BIT(14)
+#define MII_ESTAT_1000BASE_X_HALF BIT(14)
 /** 1000BASE-T full-duplex capable */
-#define MII_ESTAT_1000BASE_T_FULL  BIT(13)
+#define MII_ESTAT_1000BASE_T_FULL BIT(13)
 /** 1000BASE-T half-duplex capable */
-#define MII_ESTAT_1000BASE_T_HALF  BIT(12)
+#define MII_ESTAT_1000BASE_T_HALF BIT(12)
 
 /* MMD Access Control Register (MII_MMD_ACR) Register bit definitions */
 /** DEVAD Mask */
