@@ -180,6 +180,13 @@
 	(MII_ADVERTISE_10_HALF | MII_ADVERTISE_10_FULL | MII_ADVERTISE_100_HALF |                  \
 	 MII_ADVERTISE_100_FULL | MII_ADVERTISE_SEL_IEEE_802_3)
 
+/* MMD Access Control Register */
+/**  Operation mode */
+#define MII_MMD_ACR_OP_MODE_DATA_NOINC 0b01 << 14
+#define MII_MMD_ACR_OP_MODE_REGISTERS  0b00 << 14
+/** Device address mask */
+#define MII_MMD_ACR_DEVADR_MASK        0x1f
+
 /* Extended Status Register bit definitions */
 /** 1000BASE-X full-duplex capable */
 #define MII_ESTAT_1000BASE_X_FULL BIT(15)
