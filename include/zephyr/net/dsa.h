@@ -235,6 +235,12 @@ struct dsa_api {
 	int (*port_lag_change)(const struct device *dev, int port);
 	int (*port_lag_join)(const struct device *dev, int port, struct dsa_lag lag);
 	int (*port_lag_leave)(const struct device *dev, int port, struct dsa_lag lag);
+
+	/*
+	 * EEE integration
+	 */
+	int (*set_mac_eee)(const struct device *dev, int port, bool is_eee_enabled);
+	int (*get_mac_eee)(const struct device *dev, int port, bool *is_eee_enabled);
 };
 
 /**
