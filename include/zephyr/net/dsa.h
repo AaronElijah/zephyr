@@ -207,13 +207,16 @@ struct dsa_api {
 	int (*phy_read)(const struct device *dev, int phynum, int regnum, uint16_t *value);
 	int (*phy_write)(const struct device *dev, int phynum, int regnum, uint16_t value);
 
-	/** TODO: implement all phy_device API from linux to phy_link_state in zephyr */
-	/** Port enable/disable */
+	/** Tagged on phylink device API from linux for convenience */
+	/** linux kernel treats phylink MAC operations in a seperate struct nominally */
+	/** Port MAC enable/disable */
 	int (*port_enable)(const struct device *dev, int port, struct phy_link_state *phy);
 	int (*port_disable)(const struct device *dev, int port);
 	/** PHYLINK functions */
 	int (*phylink_mac_link_up)(const struct device *dev, int port, unsigned int mode, int speed,
 				   int duplex, bool tx_pause, bool rx_pause);
+	int (*phylink_mac_interface_config)(const struct device *dev, int port,
+					    phy_interface_t interface);
 
 	/** VLAN support */
 	int (*port_vlan_filtering)(const struct device *dev, int port, bool vlan_filtering);
@@ -221,7 +224,7 @@ struct dsa_api {
 			     bool pvid);
 	int (*port_vlan_del)(
 		const struct device *dev, int port,
-		uint16_t vid); // TODO: may need to add flags, etc arguments to this functions
+		uint16_t vid); // TODO: see what flags, arguments, etc for more complex cases
 
 	/*
 	 * Forwarding database
@@ -359,6 +362,22 @@ int dsa_port_enable(struct net_if *iface, int port);
  */
 int dsa_port_phylink_mac_link_up(struct net_if *iface, int port, unsigned int mode, int speed,
 				 int duplex, bool tx_pause, bool rx_pause);
+
+/**
+ * @brief Configure the MAC interface for a specific port on a DSA switch
+ *
+ * This function configures the MAC interface for a given port on a DSA switch.
+ * It sets up the MAC layer interface type for the specified port.
+ *
+ * @param iface Pointer to the network interface
+ * @param port Port number to configure
+ * @param interface MAC layer interface type to set
+ *
+ * @return 0 if successful, -ENOSYS if the operation is not supported by the driver, <0 for other
+ * errors
+ */
+int dsa_port_phylink_mac_interface_config(struct net_if *iface, int port,
+					  phy_interface_t interface);
 
 /**
  * @brief 	    Enable/disable VLAN filtering on switch port
