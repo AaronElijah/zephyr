@@ -297,7 +297,7 @@ int dsa_port_enable(struct net_if *iface, int port)
 }
 
 /**
- * @brief 	    Configure MAC link on switch port
+ * @brief 	    Configure MAC link on switch port MAC
  *
  * @param 		iface 		   DSA interface
  * @param		port		   Port to enable
@@ -317,6 +317,34 @@ int dsa_port_phylink_mac_link_up(struct net_if *iface, int port, unsigned int mo
 	const struct dsa_api *api = (const struct dsa_api *)context->dapi;
 
 	return api->phylink_mac_link_up(dev, port, mode, speed, duplex, tx_pause, rx_pause);
+}
+
+/**
+ * @brief Configure the MAC interface for a specific port on a DSA switch
+ *
+ * This function configures the MAC interface for a given port on a DSA switch.
+ * It sets up the MAC layer interface type for the specified port.
+ *
+ * @param iface Pointer to the network interface
+ * @param port Port number to configure
+ * @param interface MAC layer interface type to set
+ *
+ * @return 0 if successful, -ENOSYS if the operation is not supported by the driver, <0 for other
+ * errors
+ */
+int dsa_port_phylink_mac_interface_config(struct net_if *iface, int port, phy_interface_t interface)
+{
+	const struct device *dev = net_if_get_device(iface);
+	struct dsa_context *context = dev->data;
+	const struct dsa_api *api = (const struct dsa_api *)context->dapi;
+	const struct device *dev = net_if_get_device(iface);
+	struct dsa_context *context = dev->data;
+	const struct dsa_api *api = (const struct dsa_api *)context->dapi;
+
+	if (!api->phylink_mac_interface_config) {
+		return -ENOSYS;
+	}
+	return api->phylink_mac_interface_config(dev, port, interface);
 }
 
 /**
