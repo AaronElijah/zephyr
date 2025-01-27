@@ -248,6 +248,9 @@ struct dsa_api {
 struct dsa_slave_config {
 	/** MAC address for each LAN{123.,} ports */
 	uint8_t mac_addr[6];
+
+	/** DSA Port SFP configuration */
+	bool is_sfp;
 };
 
 /**
