@@ -200,15 +200,18 @@ struct dsa_api {
 	/*
 	 * Access to the switch's PHY registers.
 	 */
-	int (*phy_read)(const struct device *dev, int phynum, int regnum, uint16_t *value);
-	int (*phy_write)(const struct device *dev, int phynum, int regnum, uint16_t value);
+	int (*phy_read)(const struct device *dev, uint8_t phynum, uint8_t regnum, uint16_t *value);
+	int (*phy_write)(const struct device *dev, uint8_t phynum, uint8_t regnum, uint16_t value);
 
 	/** Tagged on phylink device API from linux for convenience */
 	/** linux kernel treats phylink MAC operations in a seperate struct nominally */
 	/** Port MAC enable/disable */
 	int (*port_enable)(const struct device *dev, int port, struct phy_link_state *phy);
 	int (*port_disable)(const struct device *dev, int port);
-	/** PHYLINK functions */
+
+	/** PHYLINK MAC/PCS functions */
+	const struct phylink_pcs_ops *(*phylink_mac_select_pcs)(const struct device *dev, int port,
+								phy_interface_t interface);
 	int (*phylink_mac_link_up)(const struct device *dev, int port, unsigned int mode, int speed,
 				   int duplex, bool tx_pause, bool rx_pause);
 	int (*phylink_mac_interface_config)(const struct device *dev, int port,
