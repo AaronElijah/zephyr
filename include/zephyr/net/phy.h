@@ -42,6 +42,20 @@ typedef enum {
 	PHY_INTERFACE_MODE_USXGMII,
 } phy_interface_t;
 
+/**
+ * struct phylink_pcs_ops - MAC PCS operations structure.
+ * @pcs_pre_config: pre-mac_config method (for errata)
+ * @pcs_post_config: post-mac_config method (for arrata)
+ * @pcs_config: configure the MAC PCS for the selected mode and state.
+ */
+struct phylink_pcs_ops {
+	int (*pcs_pre_config)(const struct device *dev, uint8_t phy_addr,
+			      phy_interface_t interface);
+	int (*pcs_post_config)(const struct device *dev, uint8_t phy_addr,
+			       phy_interface_t interface);
+	int (*pcs_config)(const struct device *dev, uint8_t phy_addr, phy_interface_t interface);
+};
+
 /** @brief Ethernet link speeds. */
 enum phy_link_speed {
 	/** 10Base-T Half-Duplex */
