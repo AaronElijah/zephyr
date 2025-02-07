@@ -18,6 +18,7 @@ LOG_MODULE_REGISTER(net_dsa, CONFIG_NET_DSA_LOG_LEVEL);
 #include <zephyr/net/ethernet.h>
 #include <zephyr/net/net_mgmt.h>
 #include <zephyr/net/dsa.h>
+#include <zephyr/net/phy.h>
 
 /*
  * Store, in the ethernet_context for master interface, the original
@@ -296,6 +297,15 @@ int dsa_port_enable(struct net_if *iface, int port)
 	return api->port_enable(dev, port, &link_state);
 }
 
+int dsa_port_phylink_mac_select_pcs(struct net_if *iface, int port, phy_interface_t interface)
+{
+	const struct device *dev = net_if_get_device(iface);
+	struct dsa_context *context = dev->data;
+	const struct dsa_api *api = (const struct dsa_api *)context->dapi;
+
+	return api->phylink_mac_select_pcs(dev, port, interface);
+}
+
 /**
  * @brief 	    Configure MAC link on switch port MAC
  *
@@ -334,9 +344,6 @@ int dsa_port_phylink_mac_link_up(struct net_if *iface, int port, unsigned int mo
  */
 int dsa_port_phylink_mac_interface_config(struct net_if *iface, int port, phy_interface_t interface)
 {
-	const struct device *dev = net_if_get_device(iface);
-	struct dsa_context *context = dev->data;
-	const struct dsa_api *api = (const struct dsa_api *)context->dapi;
 	const struct device *dev = net_if_get_device(iface);
 	struct dsa_context *context = dev->data;
 	const struct dsa_api *api = (const struct dsa_api *)context->dapi;
