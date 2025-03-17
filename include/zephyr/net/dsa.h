@@ -216,10 +216,12 @@ struct dsa_api {
 	/** PHYLINK MAC/PCS functions */
 	const struct phylink_pcs_ops *(*phylink_mac_select_pcs)(const struct device *dev, int port,
 								phy_interface_t interface);
-	int (*phylink_mac_link_up)(const struct device *dev, int port, unsigned int mode, int speed,
-				   int duplex, bool tx_pause, bool rx_pause);
+	int (*phylink_mac_prepare)(const struct device *dev, int port, phy_interface_t interface);
+	int (*phylink_mac_finish)(const struct device *dev, int port, phy_interface_t interface);
 	int (*phylink_mac_interface_config)(const struct device *dev, int port,
 					    phy_interface_t interface);
+	int (*phylink_mac_link_up)(const struct device *dev, int port, unsigned int mode, int speed,
+		int duplex, bool tx_pause, bool rx_pause);
 
 	/** VLAN support */
 	int (*port_vlan_filtering)(const struct device *dev, int port, bool vlan_filtering);
