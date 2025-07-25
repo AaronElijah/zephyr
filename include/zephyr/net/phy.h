@@ -31,36 +31,6 @@
 extern "C" {
 #endif
 
-/** @brief MII interfaces from MAC to PHY */
-typedef enum {
-	PHY_INTERFACE_MODE_NA,
-	PHY_INTERFACE_MODE_MII,
-	PHY_INTERFACE_MODE_REVMII,
-	PHY_INTERFACE_MODE_RMII,
-	PHY_INTERFACE_MODE_REVRMII,
-	PHY_INTERFACE_MODE_RGMII,
-	PHY_INTERFACE_MODE_SGMII,
-	PHY_INTERFACE_MODE_1000BASEX,
-	PHY_INTERFACE_MODE_2500BASEX,
-	PHY_INTERFACE_MODE_5GBASER,
-	PHY_INTERFACE_MODE_10GBASER,
-	PHY_INTERFACE_MODE_USXGMII,
-} phy_interface_t;
-
-/**
- * struct phylink_pcs_ops - MAC PCS operations structure.
- * @pcs_pre_config: pre-mac_config method (for errata)
- * @pcs_post_config: post-mac_config method (for arrata)
- * @pcs_config: configure the MAC PCS for the selected mode and state.
- */
-struct phylink_pcs_ops {
-	int (*pcs_pre_config)(const struct device *dev, uint8_t phy_addr,
-			      phy_interface_t interface);
-	int (*pcs_post_config)(const struct device *dev, uint8_t phy_addr,
-			       phy_interface_t interface);
-	int (*pcs_config)(const struct device *dev, uint8_t phy_addr, phy_interface_t interface);
-};
-
 /** @brief Ethernet link speeds. */
 enum phy_link_speed {
 	/** 10Base Half-Duplex */
@@ -125,6 +95,40 @@ struct phy_link_state {
 	enum phy_link_speed speed;
 	/** When true the link is active and connected */
 	bool is_up;
+	/** Whether autonegotiation is known to be completed */
+	bool autoneg_complete;
+};
+
+/** @brief MII interfaces from MAC to PHY */
+typedef enum {
+	PHY_INTERFACE_MODE_NA,
+	PHY_INTERFACE_MODE_MII,
+	PHY_INTERFACE_MODE_REVMII,
+	PHY_INTERFACE_MODE_RMII,
+	PHY_INTERFACE_MODE_REVRMII,
+	PHY_INTERFACE_MODE_RGMII,
+	PHY_INTERFACE_MODE_SGMII,
+	PHY_INTERFACE_MODE_1000BASEX,
+	PHY_INTERFACE_MODE_2500BASEX,
+	PHY_INTERFACE_MODE_5GBASER,
+	PHY_INTERFACE_MODE_10GBASER,
+	PHY_INTERFACE_MODE_USXGMII,
+} phy_interface_t;
+
+/**
+ * struct phylink_pcs_ops - MAC PCS operations structure.
+ * @pcs_pre_config: pre-mac_config method (for errata)
+ * @pcs_post_config: post-mac_config method (for arrata)
+ * @pcs_config: configure the MAC PCS for the selected mode and state.
+ */
+struct phylink_pcs_ops {
+	int (*pcs_pre_config)(const struct device *dev, uint8_t phy_addr,
+			      phy_interface_t interface);
+	int (*pcs_post_config)(const struct device *dev, uint8_t phy_addr,
+			       phy_interface_t interface);
+	int (*pcs_config)(const struct device *dev, uint8_t phy_addr, phy_interface_t interface);
+	int (*pcs_get_state)(const struct device *dev, uint8_t phy_addr, phy_interface_t interface,
+			     struct phy_link_state *state);
 };
 
 /** @brief Ethernet configure link flags. */
@@ -241,6 +245,10 @@ __subsystem struct ethphy_driver_api {
 
 	/* Get PLCA status */
 	int (*get_plca_sts)(const struct device *dev, bool *plca_sts);
+
+	/** PHY power down */
+	// TODO: replace with phy_set_tunable() in the future
+	int (*set_power_down)(const struct device *dev, bool power_down);
 };
 /**
  * @endcond
