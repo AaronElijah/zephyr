@@ -42,6 +42,14 @@ typedef enum {
 	PHY_INTERFACE_MODE_USXGMII,
 } phy_interface_t;
 
+/** @brief Link state */
+struct phy_link_state {
+	int speed;
+	int duplex;
+	bool link;
+	bool autoneg_complete;
+};
+
 /**
  * struct phylink_pcs_ops - MAC PCS operations structure.
  * @pcs_pre_config: pre-mac_config method (for errata)
@@ -54,6 +62,8 @@ struct phylink_pcs_ops {
 	int (*pcs_post_config)(const struct device *dev, uint8_t phy_addr,
 			       phy_interface_t interface);
 	int (*pcs_config)(const struct device *dev, uint8_t phy_addr, phy_interface_t interface);
+	int (*pcs_get_state)(const struct device *dev, uint8_t phy_addr, phy_interface_t interface,
+			     struct phy_link_state *state);
 };
 
 /** @brief Ethernet link speeds. */
@@ -99,14 +109,6 @@ enum phy_link_speed {
  */
 #define PHY_LINK_IS_SPEED_100M(x) (x & (BIT(2) | BIT(3)))
 
-/** @brief Link state */
-struct phy_link_state {
-	/** Link speed */
-	enum phy_link_speed speed;
-	/** When true the link is active and connected */
-	bool is_up;
-};
-
 /**
  * @typedef phy_callback_t
  * @brief Define the callback function signature for
@@ -140,6 +142,10 @@ __subsystem struct ethphy_driver_api {
 
 	/** Write PHY register */
 	int (*write)(const struct device *dev, uint16_t reg_addr, uint32_t data);
+
+	/** PHY power down */
+	// TODO: replace with phy_set_tunable() in the future
+	int (*set_power_down)(const struct device *dev, bool power_down);
 };
 /**
  * @endcond

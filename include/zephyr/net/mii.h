@@ -150,6 +150,12 @@
 /** try for 1000BASE-T half duplex support */
 #define MII_ADVERTISE_1000_HALF (1 << 8)
 
+/* 1000BASE-T Status Register bit definitions */
+/** link partner 1000BASE-T full duplex support */
+#define MII_LP_ADVERTISE_1000_FULL (1 << 11)
+/** link partner 1000BASE-T half duplex support */
+#define MII_LP_ADVERTISE_1000_HALF (1 << 10)
+
 /** Advertise all speeds */
 #define MII_ADVERTISE_ALL                                                                          \
 	(MII_ADVERTISE_10_HALF | MII_ADVERTISE_10_FULL | MII_ADVERTISE_100_HALF |                  \
