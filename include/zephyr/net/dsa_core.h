@@ -30,7 +30,7 @@
 #if defined(CONFIG_DSA_PORT_MAX_COUNT)
 #define DSA_PORT_MAX_COUNT CONFIG_DSA_PORT_MAX_COUNT
 #else
-#define DSA_PORT_MAX_COUNT 0
+#define DSA_PORT_MAX_COUNT 11
 #endif
 
 #if defined(CONFIG_DSA_TAG_SIZE)
@@ -75,6 +75,12 @@ extern "C" {
 	};                                                                                         \
 	DT_INST_FOREACH_CHILD_STATUS_OKAY_VARGS(n, fn, n);
 
+/** DSA Link Aggregation */
+struct dsa_lag {
+	int id;
+	bool is_valid;
+};
+
 /** DSA switch context data */
 struct dsa_switch_context {
 	/** Pointers to all DSA user network interfaces */
@@ -94,6 +100,25 @@ struct dsa_switch_context {
 
 	/** Number of initialized ports in the DSA switch */
 	uint8_t init_ports;
+
+	/** User mdio device for internal PHY devices */
+	/** This is a device with an mdio_driver_api implementation for the device API */
+	const struct device *user_mdio_dev;
+
+	/** Link Aggregation*/
+	/* Should set this to the maximum number of
+	 * supported IDs. However we don't want to use heap memory if we can
+	 * Hence we'll leave this as documentation but in future, we will statically allocate the
+	 * `lags` array
+	 */
+	// unsigned int num_lag_ids;
+	/* Maps offloaded LAG netdevs to a zero-based linear ID for
+	 * drivers that need it.
+	 */
+	struct dsa_lag lags[DSA_PORT_MAX_COUNT]; // LAG per port
+	// nominally 32 LAG IDs supported on mv88e6393 but don't have cascaded switch, maximum is 11
+	// LAG IDs in total - saves having to create a list from iterating `lags` member
+	unsigned int lag_ids[11];
 };
 
 /**
@@ -121,6 +146,44 @@ struct dsa_api {
 
 	/** Switch setup */
 	int (*switch_setup)(const struct dsa_switch_context *dsa_switch_ctx);
+
+	/** Tagged on phylink device API from linux for convenience */
+	/** linux kernel treats phylink MAC operations in a seperate struct nominally */
+	/** Port MAC enable/disable */
+	int (*port_enable)(const struct device *dev, int port, struct phy_link_state *phy);
+	int (*port_disable)(const struct device *dev, int port);
+	/** PHYLINK MAC/PCS functions */
+	const struct phylink_pcs_ops *(*phylink_mac_select_pcs)(const struct device *dev, int port,
+								phy_interface_t interface);
+	int (*phylink_mac_prepare)(const struct device *dev, int port, phy_interface_t interface);
+	int (*phylink_mac_finish)(const struct device *dev, int port, phy_interface_t interface);
+	int (*phylink_mac_interface_config)(const struct device *dev, int port,
+					    phy_interface_t interface);
+	int (*phylink_mac_link_up)(const struct device *dev, int port, unsigned int mode, int speed,
+				   int duplex, bool tx_pause, bool rx_pause);
+	/** VLAN support */
+	int (*port_vlan_filtering)(const struct device *dev, int port, bool vlan_filtering);
+	int (*port_vlan_add)(const struct device *dev, int port, uint16_t vid, bool untagged,
+			     bool pvid);
+	int (*port_vlan_del)(
+		const struct device *dev, int port,
+		uint16_t vid); // TODO: see what flags, arguments, etc for more complex cases
+	/*
+	 * Forwarding database
+	 */
+	int (*port_fdb_del)(const struct device *dev, int port, const unsigned char *addr,
+			    uint16_t vid);
+	/*
+	 * LAG integration
+	 */
+	int (*port_lag_change)(const struct device *dev, int port);
+	int (*port_lag_join)(const struct device *dev, int port, struct dsa_lag lag);
+	int (*port_lag_leave)(const struct device *dev, int port, struct dsa_lag lag);
+	/*
+	 * EEE integration
+	 */
+	int (*set_mac_eee)(const struct device *dev, int port, bool is_eee_enabled);
+	int (*get_mac_eee)(const struct device *dev, int port, bool *is_eee_enabled);
 };
 
 /**
@@ -139,8 +202,20 @@ struct dsa_port_config {
 	const char *phy_mode;
 	/** Ethernet device connected to the port */
 	const struct device *ethernet_connection;
+	/** DSA Port SFP configuration - seems excessive, can we remove this?*/
+	bool is_sfp;
 	/** Instance specific config */
 	void *prv_config;
+};
+
+/**
+ * Structure of DSA port device data.
+ */
+struct dsa_port {
+	const struct device *dsa_master; /**< Pointer to the master switch device */
+
+	/** Instance specific data */
+	void *prv_data;
 };
 
 /** @cond INTERNAL_HIDDEN */

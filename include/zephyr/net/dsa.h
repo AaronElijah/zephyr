@@ -121,12 +121,6 @@ bool dsa_is_port_master(struct net_if *iface);
  * public documentation.
  */
 
-/** DSA Link Aggregation */
-struct dsa_lag {
-	int id;
-	bool is_valid;
-};
-
 /** DSA context data */
 struct dsa_context {
 	/** Pointers to all DSA slave network interfaces */
@@ -134,10 +128,6 @@ struct dsa_context {
 
 	/** Pointer to DSA master network interface */
 	struct net_if *iface_master;
-
-	/** User mdio device for internal PHY devices */
-	/** This is a device with an mdio_driver_api implementation for the device API */
-	const struct device *user_mdio_dev;
 
 	/** DSA specific API callbacks - filled in the switch IC driver */
 	struct dsa_api *dapi;
@@ -150,130 +140,6 @@ struct dsa_context {
 
 	/** Status of each port */
 	bool link_up[NET_DSA_PORT_MAX_COUNT];
-
-	/** Instance specific data */
-	void *prv_data;
-
-	/** Link Aggregation*/
-	/* Should set this to the maximum number of
-	 * supported IDs. However we don't want to use heap memory if we can
-	 * Hence we'll leave this as documentation but in future, we will statically allocate the
-	 * `lags` array
-	 */
-	// unsigned int num_lag_ids;
-	/* Maps offloaded LAG netdevs to a zero-based linear ID for
-	 * drivers that need it.
-	 */
-	struct dsa_lag lags[NET_DSA_PORT_MAX_COUNT]; // LAG per port
-	// nominally 32 LAG IDs supported on mv88e6393 but don't have cascaded switch, maximum is 11
-	// LAG IDs in total - saves having to create a list from iterating `lags` member
-	unsigned int lag_ids[11];
-};
-
-/**
- * @brief Structure to provide DSA switch api callbacks - it is an augmented
- * struct ethernet_api.
- */
-struct dsa_api {
-	/** Function to get proper LAN{123} interface */
-	struct net_if *(*dsa_get_iface)(struct net_if *iface, struct net_pkt *pkt);
-	/*
-	 * Callbacks required for DSA switch initialization and configuration.
-	 *
-	 * Each switch instance (e.g. two KSZ8794 ICs) would have its own struct
-	 * dsa_context.
-	 */
-	/** Read value from DSA register */
-	int (*switch_read)(const struct device *dev, uint16_t reg_addr, uint8_t *value);
-	/** Write value to DSA register */
-	int (*switch_write)(const struct device *dev, uint16_t reg_addr, uint8_t value);
-
-	/** Program (set) mac table entry in the DSA switch */
-	int (*switch_set_mac_table_entry)(const struct device *dev, const uint8_t *mac,
-					  uint8_t fw_port, uint16_t tbl_entry_idx, uint16_t flags);
-
-	/** Read mac table entry from the DSA switch */
-	int (*switch_get_mac_table_entry)(const struct device *dev, uint8_t *buf,
-					  uint16_t tbl_entry_idx);
-
-	/*
-	 * DSA helper callbacks
-	 */
-	struct net_pkt *(*dsa_xmit_pkt)(struct net_if *iface, struct net_pkt *pkt);
-
-	/*
-	 * Access to the switch's PHY registers.
-	 */
-	int (*phy_read)(const struct device *dev, uint8_t phynum, uint8_t regnum, uint16_t *value);
-	int (*phy_write)(const struct device *dev, uint8_t phynum, uint8_t regnum, uint16_t value);
-
-	/** Tagged on phylink device API from linux for convenience */
-	/** linux kernel treats phylink MAC operations in a seperate struct nominally */
-	/** Port MAC enable/disable */
-	int (*port_enable)(const struct device *dev, int port, struct phy_link_state *phy);
-	int (*port_disable)(const struct device *dev, int port);
-
-	/** PHYLINK MAC/PCS functions */
-	const struct phylink_pcs_ops *(*phylink_mac_select_pcs)(const struct device *dev, int port,
-								phy_interface_t interface);
-	int (*phylink_mac_prepare)(const struct device *dev, int port, phy_interface_t interface);
-	int (*phylink_mac_finish)(const struct device *dev, int port, phy_interface_t interface);
-	int (*phylink_mac_interface_config)(const struct device *dev, int port,
-					    phy_interface_t interface);
-	int (*phylink_mac_link_up)(const struct device *dev, int port, unsigned int mode, int speed,
-				   int duplex, bool tx_pause, bool rx_pause);
-
-	/** VLAN support */
-	int (*port_vlan_filtering)(const struct device *dev, int port, bool vlan_filtering);
-	int (*port_vlan_add)(const struct device *dev, int port, uint16_t vid, bool untagged,
-			     bool pvid);
-	int (*port_vlan_del)(
-		const struct device *dev, int port,
-		uint16_t vid); // TODO: see what flags, arguments, etc for more complex cases
-
-	/*
-	 * Forwarding database
-	 */
-	int (*port_fdb_del)(const struct device *dev, int port, const unsigned char *addr,
-			    uint16_t vid);
-
-	/*
-	 * LAG integration
-	 */
-	int (*port_lag_change)(const struct device *dev, int port);
-	int (*port_lag_join)(const struct device *dev, int port, struct dsa_lag lag);
-	int (*port_lag_leave)(const struct device *dev, int port, struct dsa_lag lag);
-
-	/*
-	 * EEE integration
-	 */
-	int (*set_mac_eee)(const struct device *dev, int port, bool is_eee_enabled);
-	int (*get_mac_eee)(const struct device *dev, int port, bool *is_eee_enabled);
-};
-
-/**
- * @brief Structure to provide mac address for each LAN interface
- */
-struct dsa_slave_config {
-	/** MAC address for each LAN{123.,} ports */
-	uint8_t mac_addr[6];
-
-	/** DSA Port SFP configuration */
-	bool is_sfp;
-
-	/** PHY device */
-	const struct device *phy_dev;
-};
-
-/**
- * @brief Structure to configuration on the global switch
- */
-// TODO: should this contain LAG information?
-struct dsa_master_config {
-};
-
-struct dsa_port {
-	const struct device *dsa_master; /**< Pointer to the master switch device */
 
 	/** Instance specific data */
 	void *prv_data;
@@ -293,53 +159,6 @@ struct dsa_port {
  * @return     NULL if slave port does not exist
  */
 struct net_if *dsa_get_slave_port(struct net_if *iface, int slave_num);
-
-/**
- * @brief      Read from DSA switch register
- *
- * @param      iface     The interface
- * @param[in]  reg_addr  The register address
- * @param      value     The value
- *
- * @return     0 if successful, negative if error
- */
-int dsa_switch_read(struct net_if *iface, uint16_t reg_addr, uint8_t *value);
-
-/**
- * @brief      Write to DSA switch
- *
- * @param      iface     The interface
- * @param[in]  reg_addr  The register address
- * @param[in]  value     The value
- *
- * @return     { description_of_the_return_value }
- */
-int dsa_switch_write(struct net_if *iface, uint16_t reg_addr, uint8_t value);
-
-/**
- * @brief      Write static MAC table entry
- *
- * @param      iface          Master DSA interface
- * @param[in]  mac            MAC address
- * @param[in]  fw_port        The firmware port
- * @param[in]  tbl_entry_idx  Table entry index
- * @param[in]  flags          Flags
- *
- * @return     0 if successful, negative if error
- */
-int dsa_switch_set_mac_table_entry(struct net_if *iface, const uint8_t *mac, uint8_t fw_port,
-				   uint16_t tbl_entry_idx, uint16_t flags);
-
-/**
- * @brief      Read static MAC table entry
- *
- * @param      iface          Master DSA interface
- * @param      buf            Buffer to receive MAC address
- * @param[in]  tbl_entry_idx  Table entry index
- *
- * @return     0 if successful, negative if error
- */
-int dsa_switch_get_mac_table_entry(struct net_if *iface, uint8_t *buf, uint16_t tbl_entry_idx);
 
 /**
  * @brief Structure to provide mac address for each LAN interface
