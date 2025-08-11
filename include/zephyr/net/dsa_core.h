@@ -202,8 +202,8 @@ struct dsa_port_config {
 	const char *phy_mode;
 	/** Ethernet device connected to the port */
 	const struct device *ethernet_connection;
-	/** DSA Port SFP configuration - seems excessive, can we remove this?*/
-	bool is_sfp;
+	/** SFP device - need to be specified somewhere else? */
+	const struct device *const sfp_dev;
 	/** Instance specific config */
 	void *prv_config;
 };
