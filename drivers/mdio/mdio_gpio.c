@@ -59,8 +59,8 @@ static ALWAYS_INLINE void mdio_gpio_read(const struct mdio_gpio_config *dev_cfg,
 	*pdata = data;
 }
 
-static ALWAYS_INLINE void mdio_gpio_write(const struct mdio_gpio_config *dev_cfg,
-					  uint32_t data, uint8_t len)
+static ALWAYS_INLINE void mdio_gpio_write(const struct mdio_gpio_config *dev_cfg, uint32_t data,
+					  uint8_t len)
 {
 	uint32_t v_data = data;
 	uint32_t v_len = len;
@@ -130,7 +130,12 @@ static int mdio_gpio_initialize(const struct device *dev)
 	struct mdio_gpio_data *const dev_data = dev->data;
 	int rc;
 
-	k_sem_init(&dev_data->sem, 1, 1);
+	if (k_object_is_valid(&dev_data->sem, K_OBJ_SEM) &&
+	    (k_sem_count_get(&dev_data->sem) == 0)) {
+		k_sem_give(&dev_data->sem);
+	} else {
+		k_sem_init(&dev_data->sem, 1, 1);
+	}
 
 	if (!device_is_ready(dev_cfg->mdc_gpio.port)) {
 		LOG_ERR("GPIO port for MDC pin is not ready");
@@ -157,6 +162,41 @@ static int mdio_gpio_initialize(const struct device *dev)
 	return 0;
 }
 
+static int mdio_gpio_deinitialize(const struct device *dev)
+{
+	const struct mdio_gpio_config *const dev_cfg = dev->config;
+	struct mdio_gpio_data *const dev_data = dev->data;
+	int rc;
+
+	k_sem_reset(&dev_data->sem);
+
+	if (!device_is_ready(dev_cfg->mdc_gpio.port)) {
+		LOG_ERR("GPIO port for MDC pin is not ready");
+		return -ENODEV;
+	}
+
+	if (!device_is_ready(dev_cfg->mdio_gpio.port)) {
+		LOG_ERR("GPIO port for MDIO pin is not ready");
+		return -ENODEV;
+	}
+
+	// Changes to analog mode (default reset state)
+	rc = gpio_pin_configure_dt(&dev_cfg->mdio_gpio, GPIO_DISCONNECTED);
+	if (rc < 0) {
+		LOG_ERR("Couldn't reset MDIO pin; (%d)", rc);
+		return rc;
+	}
+
+	// Changes to analog mode (default reset state)
+	rc = gpio_pin_configure_dt(&dev_cfg->mdc_gpio, GPIO_DISCONNECTED);
+	if (rc < 0) {
+		LOG_ERR("Couldn't reset MDC pin; (%d)", rc);
+		return rc;
+	}
+
+	return 0;
+}
+
 static DEVICE_API(mdio, mdio_gpio_driver_api) = {
 	.read = mdio_gpio_read_mmi,
 	.write = mdio_gpio_write_mmi,
@@ -171,8 +211,9 @@ static DEVICE_API(mdio, mdio_gpio_driver_api) = {
 #define MDIO_GPIO_DEVICE(inst)                                                                     \
 	MDIO_GPIO_CONFIG(inst);                                                                    \
 	static struct mdio_gpio_data mdio_gpio_dev_data_##inst;                                    \
-	DEVICE_DT_INST_DEFINE(inst, &mdio_gpio_initialize, NULL, &mdio_gpio_dev_data_##inst,       \
-			      &mdio_gpio_dev_config_##inst, POST_KERNEL,                           \
-			      CONFIG_MDIO_INIT_PRIORITY, &mdio_gpio_driver_api);
+	DEVICE_DT_INST_DEINIT_DEFINE(inst, &mdio_gpio_initialize, &mdio_gpio_deinitialize, NULL,   \
+				     &mdio_gpio_dev_data_##inst, &mdio_gpio_dev_config_##inst,     \
+				     POST_KERNEL, CONFIG_MDIO_INIT_PRIORITY,                       \
+				     &mdio_gpio_driver_api);
 
 DT_INST_FOREACH_STATUS_OKAY(MDIO_GPIO_DEVICE)

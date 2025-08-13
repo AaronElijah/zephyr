@@ -198,8 +198,7 @@ void i2c_stm32_error_isr(void *arg);
 
 #define I2C_STM32_IRQ_HANDLER_DECL(index)							\
 static void i2c_stm32_irq_config_func_##index(const struct device *dev)
-#define I2C_STM32_IRQ_HANDLER_FUNCTION(index)							\
-	.irq_config_func = i2c_stm32_irq_config_func_##index,
+#define I2C_STM32_IRQ_HANDLER_FUNCTION(index) .irq_config_func = i2c_stm32_irq_config_func_##index,
 #define I2C_STM32_IRQ_HANDLER(index)								\
 static void i2c_stm32_irq_config_func_##index(const struct device *dev)				\
 {												\
