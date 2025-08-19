@@ -46,6 +46,9 @@ extern "C" {
 /** This and higher values refer to custom private states. */
 #define PINCTRL_STATE_PRIV_START 2U
 
+/** Reset state (state used when the device is reset). */
+#define PINCTRL_STATE_RESETSTATE 3U
+
 /** @} */
 
 /** Pin control state configuration. */

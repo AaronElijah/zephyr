@@ -284,6 +284,149 @@ extern const struct ethernet_api dsa_eth_api;
  */
 struct net_if *dsa_user_get_iface(struct net_if *iface, int port_idx);
 
+/**
+ * @brief Structure to provide mac address for each LAN interface
+ */
+
+/**
+ * @brief      Disable switch port
+ *
+ * @param      iface          DSA interface
+ * @param      port 		  Port to disable
+ *
+ * @return     0 if successful, negative if error
+ */
+int dsa_port_disable(struct net_if *iface, int port);
+
+/**
+ * @brief 	    Enable switch port
+ *
+ * @param 		iface 		   DSA interface
+ * @param		port		   Port to enable
+ *
+ * @return 		0 if successful, negative if error
+ */
+int dsa_port_enable(struct net_if *iface, int port);
+
+
+/**
+ * @brief      Select PHYLINK PCS for a DSA port
+ *
+ * @param      iface     DSA interface
+ * @param      port      Port to configure
+ * @param      interface PHY interface type
+ *
+ * @return     Pointer to the PHYLINK PCS operations, or NULL if not found
+ */
+struct phylink_pcs_ops * dsa_port_phylink_mac_select_pcs(struct net_if *iface, int port, phy_interface_t interface);
+
+/**
+ * @brief 	    Configure MAC link on switch port
+ *
+ * @param 		iface 		   DSA interface
+ * @param		port		   Port to enable
+ * @param 		mode 		   Autonegotiation mode ('phy', 'fixed', 'inband')
+ * @param 		speed 		   Link speed (10, 100, 200, 1000, 2500, 10000)
+ * @param		duplex 	   	   Duplex mode (1 [full], 0 [half])
+ * @param 		tx_pause 	   Enable TX pause
+ * @param 		rx_pause 	   Enable RX pause
+ *
+ * @return 		0 if successful, negative if error
+ */
+int dsa_port_phylink_mac_link_up(struct net_if *iface, int port, unsigned int mode, int speed,
+				 int duplex, bool tx_pause, bool rx_pause);
+
+/**
+ * @brief Configure the MAC interface for a specific port on a DSA switch
+ *
+ * This function configures the MAC interface for a given port on a DSA switch.
+ * It sets up the MAC layer interface type for the specified port.
+ *
+ * @param iface Pointer to the network interface
+ * @param port Port number to configure
+ * @param interface MAC layer interface type to set
+ *
+ * @return 0 if successful, -ENOSYS if the operation is not supported by the driver, <0 for other
+ * errors
+ */
+int dsa_port_phylink_mac_interface_config(struct net_if *iface, int port,
+					  phy_interface_t interface);
+
+/**
+ * @brief 	    Enable/disable VLAN filtering on switch port
+ *
+ * @param 		iface 		   DSA interface
+ * @param		port		   Port to enable VLANs
+ * @param 		vlan_filtering Enable/disable VLAN filtering
+ *
+ * @return 		0 if successful, negative if error
+ */
+int dsa_port_vlan_filtering(struct net_if *iface, int port, bool vlan_filtering);
+
+/**
+ * @brief 		Add VLAN to switch port
+ *
+ * @param 		iface 		   DSA interface
+ * @param		port		   Port to enable
+ * @param 		vlan_id 	   VLAN ID
+ *
+ * @return 		0 if successful, negative if error
+ */
+int dsa_port_vlan_add(struct net_if *iface, int port, uint16_t vid, bool untagged, bool pvid);
+
+/**
+ * @brief        Remove VLAN from switch port
+ *
+ * @param 		iface 		   DSA interface
+ * @param		port		   Port to enable
+ * @param 		vlan_id 	   VLAN ID
+ *
+ * @return 		0 if successful, negative if error
+ */
+int dsa_port_vlan_del(struct net_if *iface, int port, uint16_t vid);
+
+/**
+ * @brief       Add LAG group to switch
+ *
+ * @param 		iface 		   DSA interface
+ * @param 		lag_id 	   	   LAG group ID
+ *
+ * @return 		0 if successful, negative if error
+ */
+int dsa_switch_lag_join(struct net_if *iface, int port, unsigned int lag_id);
+
+/**
+ * @brief       Remove LAG group from switch
+ *
+ * @param 		iface 		   DSA interface
+ * @param 		port 	   Port to remove LAG group from
+ *
+ * @return 		0 if successful, negative if error
+ */
+int dsa_switch_lag_leave(struct net_if *iface, int port, unsigned int lag_id);
+
+/**
+ * @brief       Change LAG group to switch
+ *
+ * @param 		iface 		   DSA interface
+ * @param 		port 	   Port to change LAG group on
+ * @param 		lag 	   LAG group ID
+ *
+ * @return 		0 if successful, negative if error
+ */
+int dsa_switch_lag_change(struct net_if *iface, int port, unsigned int lag_id);
+
+/**
+ * @brief       Set EEE configuration
+ *
+ * @param 		iface 	   DSA port interface
+ * @param 		port 	   Port to change LAG group on
+ * @param 		lag 	   LAG group ID
+ *
+ * @return 		0 if successful, negative if error
+ */
+int dsa_port_eee_cfg(struct net_if *iface, int port, bool is_eee_enabled);
+
 #ifdef __cplusplus
 }
 #endif

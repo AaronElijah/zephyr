@@ -130,12 +130,7 @@ static int mdio_gpio_initialize(const struct device *dev)
 	struct mdio_gpio_data *const dev_data = dev->data;
 	int rc;
 
-	if (k_object_is_valid(&dev_data->sem, K_OBJ_SEM) &&
-	    (k_sem_count_get(&dev_data->sem) == 0)) {
-		k_sem_give(&dev_data->sem);
-	} else {
-		k_sem_init(&dev_data->sem, 1, 1);
-	}
+	k_sem_init(&dev_data->sem, 1, 1);
 
 	if (!device_is_ready(dev_cfg->mdc_gpio.port)) {
 		LOG_ERR("GPIO port for MDC pin is not ready");
@@ -162,6 +157,7 @@ static int mdio_gpio_initialize(const struct device *dev)
 	return 0;
 }
 
+#if CONFIG_DEVICE_DEINIT_SUPPORT
 static int mdio_gpio_deinitialize(const struct device *dev)
 {
 	const struct mdio_gpio_config *const dev_cfg = dev->config;
@@ -193,9 +189,9 @@ static int mdio_gpio_deinitialize(const struct device *dev)
 		LOG_ERR("Couldn't reset MDC pin; (%d)", rc);
 		return rc;
 	}
-
 	return 0;
 }
+#endif
 
 static DEVICE_API(mdio, mdio_gpio_driver_api) = {
 	.read = mdio_gpio_read_mmi,
