@@ -330,11 +330,7 @@ static int i2c_stm32_init(const struct device *dev)
 	int ret;
 	struct i2c_stm32_data *data = dev->data;
 #ifdef CONFIG_I2C_STM32_INTERRUPT
-	if (k_object_is_valid(&data->device_sync_sem, K_OBJ_SEM)) {
-		k_sem_reset(&data->device_sync_sem);
-	} else {
-		k_sem_init(&data->device_sync_sem, 0, K_SEM_MAX_LIMIT);
-	}
+	k_sem_init(&data->device_sync_sem, 0, K_SEM_MAX_LIMIT);
 	cfg->irq_config_func(dev);
 #endif
 
@@ -346,12 +342,7 @@ static int i2c_stm32_init(const struct device *dev)
 	 * are taking place to guarantee that each one is
 	 * atomic and has exclusive access to the I2C bus.
 	 */
-	if (k_object_is_valid(&data->bus_mutex, K_OBJ_SEM) &&
-	    (k_sem_count_get(&data->bus_mutex) == 0)) {
-		k_sem_give(&data->bus_mutex);
-	} else {
-		k_sem_init(&data->bus_mutex, 1, 1);
-	}
+	k_sem_init(&data->bus_mutex, 1, 1);
 
 	if (!device_is_ready(clk)) {
 		LOG_ERR("clock control device not ready");
@@ -411,7 +402,7 @@ static int i2c_stm32_deinit(const struct device *dev)
 
 #ifdef CONFIG_I2C_STM32_INTERRUPT
 	k_sem_reset(&data->device_sync_sem);
-	// cfg->irq_disable_func(dev);
+	// cfg->irq_disable_func(dev); // TODO: add disable IRQ
 #endif
 
 	data->is_configured = false;
@@ -424,8 +415,12 @@ static int i2c_stm32_deinit(const struct device *dev)
 		return ret;
 	}
 
-	/* Move pins to sleep state */
+	/* Move pins to a custom reset state */
+#ifdef PINCTRL_STATE_RESETSTATE
+	ret = pinctrl_apply_state(cfg->pcfg, PINCTRL_STATE_RESETSTATE);
+#else
 	ret = pinctrl_apply_state(cfg->pcfg, PINCTRL_STATE_SLEEP);
+#endif
 	if (ret == -ENOENT) {
 		/* Warn but don't block suspend */
 		LOG_WRN("I2C pinctrl sleep state not available ");

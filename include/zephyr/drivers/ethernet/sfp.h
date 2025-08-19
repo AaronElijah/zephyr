@@ -10,6 +10,11 @@ extern "C" {
 /**
  * SFF-8472 defines the EEPROM size as 256 bytes for address A0h (0x50)
  */
+
+ /*
+ *	0xA0h Address data fields
+ */
+
 /** Physical Device Identifier Values (0x00) */
 #define SFP_PID_REG                                                       0x00
 #define SFP_PID_SIZE                                                      1
@@ -170,17 +175,86 @@ extern "C" {
 #define SFP_COMPLIANCE_CODE8_200     BIT(2)
 #define SFP_COMPLIANCE_CODE8_100     BIT(0)
 
-struct sfp_module_info {
+ /*
+ *	0xA2h Address data fields
+ */
+#define SFP_AW_THRESHOLDS_REG 0x00
+#define SFP_AW_THRESHOLDS_SIZE 40
+
+#define SFP_OPT_SW_THRES_REG 0x28
+#define SFP_OPT_SW_THRES_SIZE 16
+
+#define SFP_EXT_CALCONST_REG 0x38
+#define SFP_EXT_CALCONST_SIZE 36
+
+#define SFP_CC_DMI_REG 0x5F
+#define SFP_CC_DMI_SIZE 1
+
+#define SFP_DIAG_REG 96
+#define SFP_DIAG_SIZE 10
+#define SFP_DIAG_TEMP_MSB 96
+#define SFP_DIAG_VCC_MSB 98
+#define SFP_DIAG_TX_BIAS_MSB 100
+#define SFP_DIAG_TX_POWER_MSB 102
+#define SFP_DIAG_RX_POWER_MSB 104
+#define SFP_DIAG_LAS_WAVE_MSB 106
+#define SFP_DIAG_TEC_MSB 108
+
+#define SFP_OPT_DIAG_REG 106
+#define SFP_OPT_DIAG_SIZE 4
+
+#define SFP_STSCTL_REG 110
+#define SFP_STSCTL_SIZE 1
+#define SFP_STSCTL_DATANOTREADY BIT(0)
+#define SFP_STSCTL_RX_LOS BIT(1)
+#define SFP_STSCTL_TX_FAULT BIT(2)
+#define SFP_STSCTL_RATE_SEL BIT(4)
+#define SFP_STSCTL_RS_STATE BIT(5)
+#define SFP_STSCTL_TX_DISABLE BIT(7)
+
+#define SFP_ALARM_FLG_REG 112
+#define SFP_ALARM_FLG_SIZE 2
+
+#define SFP_TX_EQ_REG 114
+#define SFP_TX_EQ_SIZE 1
+
+#define SFP_RX_OUT_REG 115
+#define SFP_RX_OUT_SIZE 1
+
+#define SFP_WARNING_FLAGS_REG 116
+#define SFP_WARNING_FLAGS_SIZE 2
+
+#define SFP_EXT_STATUS_CONTROL_REG 118
+#define SFP_EXT_STATUS_CONTROL_SIZE 2
+
+struct sfp_module_eeprom {
+	// 0xA0 address
 	uint8_t physical_id;
 	uint8_t ext_id;
 	uint8_t connector;
 	uint8_t compliance[SFP_COMPLIANCE_SIZE];
+
+	// 0xA2 address
+	uint8_t aw_thresholds[SFP_AW_THRESHOLDS_SIZE];
+	uint8_t optional_aw[SFP_OPT_SW_THRES_SIZE];
+	uint8_t extcal_consts[SFP_EXT_CALCONST_SIZE];
+	uint8_t cc_dmi;
+	uint8_t diagnostics[SFP_DIAG_SIZE];
+	uint8_t optional_diagnostics[SFP_OPT_DIAG_SIZE];
+	uint8_t stsctl;
+	uint8_t alarm_flg[SFP_ALARM_FLG_SIZE];
+	uint8_t tx_eq;
+	uint8_t rx_out;
+	uint8_t warning_flags[SFP_WARNING_FLAGS_SIZE];
+	uint8_t ext_status_control[SFP_EXT_STATUS_CONTROL_SIZE];
 };
 
-typedef int (*get_module_info_t)(const struct device *dev, struct sfp_module_info *info);
+typedef int (*get_module_info_t)(const struct device *dev, struct sfp_module_eeprom *info);
+typedef int (*check_state_t)(const struct device *dev, uint8_t *state);
 
 __subsystem struct sfp_driver_api {
 	get_module_info_t get_module_info;
+	check_state_t check_state;
 };
 
 // __syscall int sfp_get_module_info(const struct device *dev, struct sfp_module_info *info);
