@@ -246,9 +246,9 @@ __subsystem struct ethphy_driver_api {
 	/* Get PLCA status */
 	int (*get_plca_sts)(const struct device *dev, bool *plca_sts);
 
-	/** PHY power down */
-	// TODO: replace with phy_set_tunable() in the future
-	int (*set_power_down)(const struct device *dev, bool power_down);
+	/** PHY power setting */
+	// IDEA: replace with phy_set_tunable()
+	int (*set_power)(const struct device *dev, bool is_down);
 };
 /**
  * @endcond

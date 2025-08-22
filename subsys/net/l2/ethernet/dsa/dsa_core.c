@@ -89,7 +89,8 @@ int dsa_port_enable(struct net_if *iface, int port)
 	return api->port_enable(dev, port, &link_state);
 }
 
-struct phylink_pcs_ops * dsa_port_phylink_mac_select_pcs(struct net_if *iface, int port, phy_interface_t interface)
+const struct phylink_pcs_ops *dsa_port_phylink_mac_select_pcs(struct net_if *iface, int port,
+							      phy_interface_t interface)
 {
 	const struct device *dev = net_if_get_device(iface);
 	struct dsa_switch_context *context = dev->data;
@@ -349,7 +350,8 @@ int dsa_switch_lag_change(struct net_if *iface, int port, unsigned int lag_id)
 	return api->port_lag_change(dev, port);
 }
 
-int dsa_port_eee_cfg(struct net_if *iface, int port, bool is_eee_enabled) {
+int dsa_port_eee_cfg(struct net_if *iface, int port, bool is_eee_enabled)
+{
 	const struct device *dev = net_if_get_device(iface);
 	struct dsa_switch_context *context = dev->data;
 	const struct dsa_api *api = (const struct dsa_api *)context->dapi;
