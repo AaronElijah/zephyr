@@ -308,7 +308,6 @@ int dsa_port_disable(struct net_if *iface, int port);
  */
 int dsa_port_enable(struct net_if *iface, int port);
 
-
 /**
  * @brief      Select PHYLINK PCS for a DSA port
  *
@@ -318,7 +317,8 @@ int dsa_port_enable(struct net_if *iface, int port);
  *
  * @return     Pointer to the PHYLINK PCS operations, or NULL if not found
  */
-struct phylink_pcs_ops * dsa_port_phylink_mac_select_pcs(struct net_if *iface, int port, phy_interface_t interface);
+const struct phylink_pcs_ops *dsa_port_phylink_mac_select_pcs(struct net_if *iface, int port,
+							      phy_interface_t interface);
 
 /**
  * @brief 	    Configure MAC link on switch port
