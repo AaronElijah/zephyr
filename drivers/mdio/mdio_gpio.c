@@ -19,6 +19,16 @@ LOG_MODULE_REGISTER(mdio_gpio, CONFIG_MDIO_LOG_LEVEL);
 #define MDIO_GPIO_WRITE_OP 1
 #define MDIO_GPIO_MSB      0x80000000
 
+#define MDIO_ST_C22 0x1
+#define MDIO_ST_C45 0x0
+
+#define MDIO_OP_C22_READ    0x2
+#define MDIO_OP_C22_WRITE   0x1
+#define MDIO_OP_C45_ADDR    0x0
+#define MDIO_OP_C45_WRITE   0x1
+#define MDIO_OP_C45_READINC 0x2
+#define MDIO_OP_C45_READ    0x3
+
 struct mdio_gpio_data {
 	struct k_sem sem;
 };
@@ -73,8 +83,8 @@ static ALWAYS_INLINE void mdio_gpio_write(const struct mdio_gpio_config *dev_cfg
 	}
 }
 
-static int mdio_gpio_transfer(const struct device *dev, uint8_t prtad, uint8_t devad, uint8_t rw,
-			      uint16_t data_in, uint16_t *data_out)
+static int mdio_gpio_transfer(const struct device *dev, uint8_t prtad, uint8_t devad, uint8_t st,
+			      uint8_t op, uint16_t data_to_w, uint16_t *data_to_r)
 {
 	const struct mdio_gpio_config *const dev_cfg = dev->config;
 	struct mdio_gpio_data *const dev_data = dev->data;
@@ -86,24 +96,24 @@ static int mdio_gpio_transfer(const struct device *dev, uint8_t prtad, uint8_t d
 	/* PRE32: 32 bits '1' for sync*/
 	mdio_gpio_write(dev_cfg, 0xFFFFFFFF, 32);
 	/* ST: 2 bits start of frame */
-	mdio_gpio_write(dev_cfg, 0x1, 2);
-	/* OP: 2 bits opcode, read '10' or write '01' */
-	mdio_gpio_write(dev_cfg, rw ? 0x1 : 0x2, 2);
+	mdio_gpio_write(dev_cfg, st, 2);
+	/* OP: 2 bits opcode */
+	mdio_gpio_write(dev_cfg, op, 2);
 	/* PA5: 5 bits PHY address */
 	mdio_gpio_write(dev_cfg, prtad, 5);
 	/* RA5: 5 bits register address */
 	mdio_gpio_write(dev_cfg, devad, 5);
 
-	if (rw) { /* Write data */
+	if (op == MDIO_OP_C45_WRITE || op == MDIO_OP_C22_WRITE || op == MDIO_OP_C45_ADDR) {
 		/* TA: 2 bits turn-around */
 		mdio_gpio_write(dev_cfg, 0x2, 2);
-		mdio_gpio_write(dev_cfg, data_in, 16);
-	} else { /* Read data */
+		mdio_gpio_write(dev_cfg, data_to_w, 16);
+	} else {
+		/* Read data */
 		/* Release the MDIO line */
 		mdio_gpio_dir(dev_cfg, MDIO_GPIO_READ_OP);
-		mdio_gpio_read(dev_cfg, data_out);
+		mdio_gpio_read(dev_cfg, data_to_r);
 	}
-
 	/* DIR: input. Tristate MDIO line */
 	mdio_gpio_dir(dev_cfg, MDIO_GPIO_READ_OP);
 
@@ -115,13 +125,32 @@ static int mdio_gpio_transfer(const struct device *dev, uint8_t prtad, uint8_t d
 static int mdio_gpio_read_mmi(const struct device *dev, uint8_t prtad, uint8_t devad,
 			      uint16_t *data)
 {
-	return mdio_gpio_transfer(dev, prtad, devad, MDIO_GPIO_READ_OP, 0, data);
+	return mdio_gpio_transfer(dev, prtad, devad, MDIO_ST_C22, MDIO_OP_C22_READ, 0, data);
 }
 
 static int mdio_gpio_write_mmi(const struct device *dev, uint8_t prtad, uint8_t devad,
 			       uint16_t data)
 {
-	return mdio_gpio_transfer(dev, prtad, devad, MDIO_GPIO_WRITE_OP, data, NULL);
+	return mdio_gpio_transfer(dev, prtad, devad, MDIO_ST_C22, MDIO_OP_C22_WRITE, data, NULL);
+}
+
+static int mdio_gpio_c45_transaction(const struct device *dev, uint8_t prtad, uint8_t devad,
+				     uint16_t regad, uint16_t *data, uint8_t opcode)
+{
+	mdio_gpio_transfer(dev, prtad, devad, MDIO_ST_C45, MDIO_OP_C45_ADDR, regad, NULL);
+	return mdio_gpio_transfer(dev, prtad, devad, MDIO_ST_C45, opcode, *data, data);
+}
+
+static int mdio_gpio_read_mmi_c45(const struct device *dev, uint8_t prtad, uint8_t devad,
+				  uint16_t regad, uint16_t *data)
+{
+	return mdio_gpio_c45_transaction(dev, prtad, devad, regad, data, MDIO_OP_C45_READ);
+}
+
+static int mdio_gpio_write_mii_c45(const struct device *dev, uint8_t prtad, uint8_t devad,
+				   uint16_t regad, uint16_t data)
+{
+	return mdio_gpio_c45_transaction(dev, prtad, devad, regad, &data, MDIO_OP_C45_WRITE);
 }
 
 static int mdio_gpio_initialize(const struct device *dev)
@@ -193,10 +222,10 @@ static int mdio_gpio_deinitialize(const struct device *dev)
 }
 #endif
 
-static DEVICE_API(mdio, mdio_gpio_driver_api) = {
-	.read = mdio_gpio_read_mmi,
-	.write = mdio_gpio_write_mmi,
-};
+static DEVICE_API(mdio, mdio_gpio_driver_api) = {.read = mdio_gpio_read_mmi,
+						 .write = mdio_gpio_write_mmi,
+						 .read_c45 = mdio_gpio_read_mmi_c45,
+						 .write_c45 = mdio_gpio_write_mii_c45};
 
 #define MDIO_GPIO_CONFIG(inst)                                                                     \
 	static struct mdio_gpio_config mdio_gpio_dev_config_##inst = {                             \
