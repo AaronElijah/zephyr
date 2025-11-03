@@ -29,42 +29,41 @@ LOG_MODULE_DECLARE(net_shell);
 #include "net_shell_private.h"
 
 #define UNICAST_MASK GENMASK(7, 1)
-#define LOCAL_BIT BIT(1)
+#define LOCAL_BIT    BIT(1)
 
 #if defined(CONFIG_NET_L2_ETHERNET) && defined(CONFIG_NET_NATIVE)
 struct ethernet_capabilities {
 	enum ethernet_hw_caps capability;
-	const char * const description;
+	const char *const description;
 };
 
-#define EC(cap, desc) { .capability = cap, .description = desc }
+#define EC(cap, desc) {.capability = cap, .description = desc}
 
 static struct ethernet_capabilities eth_hw_caps[] = {
 	EC(ETHERNET_HW_TX_CHKSUM_OFFLOAD, "TX checksum offload"),
 	EC(ETHERNET_HW_RX_CHKSUM_OFFLOAD, "RX checksum offload"),
-	EC(ETHERNET_HW_VLAN,              "Virtual LAN"),
-	EC(ETHERNET_HW_VLAN_TAG_STRIP,    "VLAN Tag stripping"),
-	EC(ETHERNET_LINK_10BASE,          "10 Mbits"),
-	EC(ETHERNET_LINK_100BASE,         "100 Mbits"),
-	EC(ETHERNET_LINK_1000BASE,        "1 Gbits"),
-	EC(ETHERNET_LINK_2500BASE,        "2.5 Gbits"),
-	EC(ETHERNET_LINK_5000BASE,        "5 Gbits"),
-	EC(ETHERNET_PTP,                  "IEEE 802.1AS gPTP clock"),
-	EC(ETHERNET_QAV,                  "IEEE 802.1Qav (credit shaping)"),
-	EC(ETHERNET_QBV,                  "IEEE 802.1Qbv (scheduled traffic)"),
-	EC(ETHERNET_QBU,                  "IEEE 802.1Qbu (frame preemption)"),
-	EC(ETHERNET_TXTIME,               "TXTIME"),
-	EC(ETHERNET_PROMISC_MODE,         "Promiscuous mode"),
-	EC(ETHERNET_PRIORITY_QUEUES,      "Priority queues"),
-	EC(ETHERNET_HW_FILTERING,         "MAC address filtering"),
-	EC(ETHERNET_DSA_USER_PORT,        "DSA user port"),
-	EC(ETHERNET_DSA_CONDUIT_PORT,     "DSA conduit port"),
-	EC(ETHERNET_TXTIME,               "TXTIME supported"),
-	EC(ETHERNET_TXINJECTION_MODE,     "TX-Injection supported"),
+	EC(ETHERNET_HW_VLAN, "Virtual LAN"),
+	EC(ETHERNET_HW_VLAN_TAG_STRIP, "VLAN Tag stripping"),
+	EC(ETHERNET_LINK_10BASE, "10 Mbits"),
+	EC(ETHERNET_LINK_100BASE, "100 Mbits"),
+	EC(ETHERNET_LINK_1000BASE, "1 Gbits"),
+	EC(ETHERNET_LINK_2500BASE, "2.5 Gbits"),
+	EC(ETHERNET_LINK_5000BASE, "5 Gbits"),
+	EC(ETHERNET_PTP, "IEEE 802.1AS gPTP clock"),
+	EC(ETHERNET_QAV, "IEEE 802.1Qav (credit shaping)"),
+	EC(ETHERNET_QBV, "IEEE 802.1Qbv (scheduled traffic)"),
+	EC(ETHERNET_QBU, "IEEE 802.1Qbu (frame preemption)"),
+	EC(ETHERNET_TXTIME, "TXTIME"),
+	EC(ETHERNET_PROMISC_MODE, "Promiscuous mode"),
+	EC(ETHERNET_PRIORITY_QUEUES, "Priority queues"),
+	EC(ETHERNET_HW_FILTERING, "MAC address filtering"),
+	EC(ETHERNET_DSA_USER_PORT, "DSA user port"),
+	EC(ETHERNET_DSA_CONDUIT_PORT, "DSA conduit port"),
+	EC(ETHERNET_TXTIME, "TXTIME supported"),
+	EC(ETHERNET_TXINJECTION_MODE, "TX-Injection supported"),
 };
 
-static void print_supported_ethernet_capabilities(
-	const struct shell *sh, struct net_if *iface)
+static void print_supported_ethernet_capabilities(const struct shell *sh, struct net_if *iface)
 {
 	enum ethernet_hw_caps caps = net_eth_get_hw_capabilities(iface);
 
@@ -79,7 +78,7 @@ static void print_supported_ethernet_capabilities(
 #ifdef CONFIG_ETH_PHY_DRIVER
 static void print_phy_link_state(const struct shell *sh, const struct device *phy_dev)
 {
-	struct phy_link_state link;
+	struct phy_link_state link = {0};
 	int ret;
 
 	ret = phy_get_link_state(phy_dev, &link);
@@ -98,53 +97,43 @@ static void print_phy_link_state(const struct shell *sh, const struct device *ph
 
 static const char *iface_flags2str(struct net_if *iface)
 {
-	static char str[sizeof("POINTOPOINT") + sizeof("PROMISC") +
-			sizeof("NO_AUTO_START") + sizeof("SUSPENDED") +
-			sizeof("MCAST_FORWARD") + sizeof("IPv4") +
+	static char str[sizeof("POINTOPOINT") + sizeof("PROMISC") + sizeof("NO_AUTO_START") +
+			sizeof("SUSPENDED") + sizeof("MCAST_FORWARD") + sizeof("IPv4") +
 			sizeof("IPv6") + sizeof("NO_ND") + sizeof("NO_MLD")];
 	int pos = 0;
 
 	if (net_if_flag_is_set(iface, NET_IF_POINTOPOINT)) {
-		pos += snprintk(str + pos, sizeof(str) - pos,
-				"POINTOPOINT,");
+		pos += snprintk(str + pos, sizeof(str) - pos, "POINTOPOINT,");
 	}
 
 	if (net_if_flag_is_set(iface, NET_IF_PROMISC)) {
-		pos += snprintk(str + pos, sizeof(str) - pos,
-				"PROMISC,");
+		pos += snprintk(str + pos, sizeof(str) - pos, "PROMISC,");
 	}
 
 	if (net_if_flag_is_set(iface, NET_IF_NO_AUTO_START)) {
-		pos += snprintk(str + pos, sizeof(str) - pos,
-				"NO_AUTO_START,");
+		pos += snprintk(str + pos, sizeof(str) - pos, "NO_AUTO_START,");
 	} else {
-		pos += snprintk(str + pos, sizeof(str) - pos,
-				"AUTO_START,");
+		pos += snprintk(str + pos, sizeof(str) - pos, "AUTO_START,");
 	}
 
 	if (net_if_flag_is_set(iface, NET_IF_FORWARD_MULTICASTS)) {
-		pos += snprintk(str + pos, sizeof(str) - pos,
-				"MCAST_FORWARD,");
+		pos += snprintk(str + pos, sizeof(str) - pos, "MCAST_FORWARD,");
 	}
 
 	if (net_if_flag_is_set(iface, NET_IF_IPV4)) {
-		pos += snprintk(str + pos, sizeof(str) - pos,
-				"IPv4,");
+		pos += snprintk(str + pos, sizeof(str) - pos, "IPv4,");
 	}
 
 	if (net_if_flag_is_set(iface, NET_IF_IPV6)) {
-		pos += snprintk(str + pos, sizeof(str) - pos,
-				"IPv6,");
+		pos += snprintk(str + pos, sizeof(str) - pos, "IPv6,");
 	}
 
 	if (net_if_flag_is_set(iface, NET_IF_IPV6_NO_ND)) {
-		pos += snprintk(str + pos, sizeof(str) - pos,
-				"NO_ND,");
+		pos += snprintk(str + pos, sizeof(str) - pos, "NO_ND,");
 	}
 
 	if (net_if_flag_is_set(iface, NET_IF_IPV6_NO_MLD)) {
-		pos += snprintk(str + pos, sizeof(str) - pos,
-				"NO_MLD,");
+		pos += snprintk(str + pos, sizeof(str) - pos, "NO_MLD,");
 	}
 
 	/* get rid of last ',' character */
@@ -188,7 +177,7 @@ static void iface_cb(struct net_if *iface, void *user_data)
 	}
 
 #if defined(CONFIG_NET_INTERFACE_NAME)
-	char ifname[CONFIG_NET_INTERFACE_NAME_LEN + 1] = { 0 };
+	char ifname[CONFIG_NET_INTERFACE_NAME_LEN + 1] = {0};
 	int ret_name;
 
 	ret_name = net_if_get_name(iface, ifname, sizeof(ifname) - 1);
@@ -226,9 +215,8 @@ static void iface_cb(struct net_if *iface, void *user_data)
 		struct virtual_interface_context *ctx, *tmp;
 
 		PR("Virtual interfaces attached to this : ");
-		SYS_SLIST_FOR_EACH_CONTAINER_SAFE(
-					&iface->config.virtual_interfaces,
-					ctx, tmp, node) {
+		SYS_SLIST_FOR_EACH_CONTAINER_SAFE(&iface->config.virtual_interfaces, ctx, tmp,
+						  node) {
 			if (ctx->virtual_iface == iface) {
 				continue;
 			}
@@ -254,37 +242,34 @@ static void iface_cb(struct net_if *iface, void *user_data)
 		if (orig_iface == NULL) {
 			PR("No attached network interface.\n");
 		} else {
-			PR("Attached  : %d (%s / %p)\n",
-			   net_if_get_by_iface(orig_iface),
-			   iface2str(orig_iface, NULL),
-			   orig_iface);
+			PR("Attached  : %d (%s / %p)\n", net_if_get_by_iface(orig_iface),
+			   iface2str(orig_iface, NULL), orig_iface);
 		}
 	}
 
-	if (IS_ENABLED(CONFIG_NET_VPN) &&
-	    net_if_l2(iface) == &NET_L2_GET_NAME(VIRTUAL)) {
+	if (IS_ENABLED(CONFIG_NET_VPN) && net_if_l2(iface) == &NET_L2_GET_NAME(VIRTUAL)) {
 		if (net_virtual_get_iface_capabilities(iface) & VIRTUAL_INTERFACE_VPN) {
-			struct virtual_interface_req_params vparams = { 0 };
+			struct virtual_interface_req_params vparams = {0};
 			char public_key[NET_VIRTUAL_MAX_PUBLIC_KEY_LEN * 2];
 			size_t olen;
 
-			ret = net_mgmt(NET_REQUEST_VIRTUAL_INTERFACE_GET_PUBLIC_KEY,
-				       iface, &vparams, sizeof(vparams));
+			ret = net_mgmt(NET_REQUEST_VIRTUAL_INTERFACE_GET_PUBLIC_KEY, iface,
+				       &vparams, sizeof(vparams));
 			if (ret < 0) {
 				PR_WARNING("Cannot get VPN public key (%d)\n", ret);
 			} else {
 				bool all_zeros = true;
 
-				for (int i = 0;
-				     all_zeros && i < NET_VIRTUAL_MAX_PUBLIC_KEY_LEN; i++) {
+				for (int i = 0; all_zeros && i < NET_VIRTUAL_MAX_PUBLIC_KEY_LEN;
+				     i++) {
 					all_zeros = (vparams.public_key.data[i] == 0);
 				}
 
 				if (all_zeros) {
 					PR("Public key: <not set>\n");
 				} else {
-					(void)base64_encode(public_key, sizeof(public_key),
-							    &olen, vparams.public_key.data,
+					(void)base64_encode(public_key, sizeof(public_key), &olen,
+							    vparams.public_key.data,
 							    vparams.public_key.len);
 
 					PR("Public key: %s\n", public_key);
@@ -296,9 +281,8 @@ static void iface_cb(struct net_if *iface, void *user_data)
 
 	net_if_lock(iface);
 	if (net_if_get_link_addr(iface)->len > 0) {
-		PR("Link addr : %s\n",
-		   net_sprint_ll_addr(net_if_get_link_addr(iface)->addr,
-				      net_if_get_link_addr(iface)->len));
+		PR("Link addr : %s\n", net_sprint_ll_addr(net_if_get_link_addr(iface)->addr,
+							  net_if_get_link_addr(iface)->len));
 	}
 	net_if_unlock(iface);
 
@@ -310,8 +294,7 @@ static void iface_cb(struct net_if *iface, void *user_data)
 
 	PR("Status    : oper=%s, admin=%s, carrier=%s\n",
 	   net_if_oper_state2str(net_if_oper_state(iface)),
-	   net_if_is_admin_up(iface) ? "UP" : "DOWN",
-	   net_if_is_carrier_ok(iface) ? "ON" : "OFF");
+	   net_if_is_admin_up(iface) ? "UP" : "DOWN", net_if_is_carrier_ok(iface) ? "ON" : "OFF");
 
 #if defined(CONFIG_NET_IF_LOG_LEVEL_DBG)
 	/* Print low level details only if debug is enabled */
@@ -322,38 +305,31 @@ static void iface_cb(struct net_if *iface, void *user_data)
 
 	if (IS_ENABLED(CONFIG_NET_IPV6) && net_if_flag_is_set(iface, NET_IF_IPV6)) {
 		PR("IPv6 hop limit       : %d\n", net_if_ipv6_get_hop_limit(iface));
-		PR("IPv6 mcast hop limit : %d\n",
-		   net_if_ipv6_get_mcast_hop_limit(iface));
+		PR("IPv6 mcast hop limit : %d\n", net_if_ipv6_get_mcast_hop_limit(iface));
 	}
 #endif /* CONFIG_NET_IF_LOG_LEVEL_DBG */
 
 #if defined(CONFIG_NET_L2_ETHERNET_MGMT)
 	if (net_if_l2(iface) == &NET_L2_GET_NAME(ETHERNET)) {
 		count = 0;
-		ret = net_mgmt(NET_REQUEST_ETHERNET_GET_PRIORITY_QUEUES_NUM,
-				iface, &params,
-				sizeof(struct ethernet_req_params));
+		ret = net_mgmt(NET_REQUEST_ETHERNET_GET_PRIORITY_QUEUES_NUM, iface, &params,
+			       sizeof(struct ethernet_req_params));
 
 		if (!ret && params.priority_queues_num) {
 			count = params.priority_queues_num;
 			PR("Priority queues:\n");
 			for (int i = 0; i < count; ++i) {
 				params.qav_param.queue_id = i;
-				params.qav_param.type =
-					ETHERNET_QAV_PARAM_TYPE_STATUS;
-				ret = net_mgmt(
-					NET_REQUEST_ETHERNET_GET_QAV_PARAM,
-					iface, &params,
-					sizeof(struct ethernet_req_params));
+				params.qav_param.type = ETHERNET_QAV_PARAM_TYPE_STATUS;
+				ret = net_mgmt(NET_REQUEST_ETHERNET_GET_QAV_PARAM, iface, &params,
+					       sizeof(struct ethernet_req_params));
 
 				PR("\t%d: Qav ", i);
 				if (ret) {
 					PR("not supported\n");
 				} else {
 					PR("%s\n",
-						params.qav_param.enabled ?
-						"enabled" :
-						"disabled");
+					   params.qav_param.enabled ? "enabled" : "disabled");
 				}
 			}
 		}
@@ -361,8 +337,7 @@ static void iface_cb(struct net_if *iface, void *user_data)
 #endif
 
 #if defined(CONFIG_NET_PROMISCUOUS_MODE)
-	PR("Promiscuous mode : %s\n",
-	   net_if_is_promisc(iface) ? "enabled" : "disabled");
+	PR("Promiscuous mode : %s\n", net_if_is_promisc(iface) ? "enabled" : "disabled");
 #endif
 
 #if defined(CONFIG_NET_VLAN)
@@ -415,10 +390,8 @@ static void iface_cb(struct net_if *iface, void *user_data)
 			continue;
 		}
 
-		PR("\t%s %s %s%s%s%s\n",
-		   net_sprint_ipv6_addr(&unicast->address.in6_addr),
-		   addrtype2str(unicast->addr_type),
-		   addrstate2str(unicast->addr_state),
+		PR("\t%s %s %s%s%s%s\n", net_sprint_ipv6_addr(&unicast->address.in6_addr),
+		   addrtype2str(unicast->addr_type), addrstate2str(unicast->addr_state),
 		   unicast->is_infinite ? " infinite" : "",
 		   unicast->is_mesh_local ? " meshlocal" : "",
 		   unicast->is_temporary ? " temporary" : "");
@@ -460,9 +433,8 @@ static void iface_cb(struct net_if *iface, void *user_data)
 			continue;
 		}
 
-		PR("\t%s/%d%s\n",
-		   net_sprint_ipv6_addr(&prefix->prefix),
-		   prefix->len, prefix->is_infinite ? " infinite" : "");
+		PR("\t%s/%d%s\n", net_sprint_ipv6_addr(&prefix->prefix), prefix->len,
+		   prefix->is_infinite ? " infinite" : "");
 
 		count++;
 	}
@@ -474,8 +446,7 @@ static void iface_cb(struct net_if *iface, void *user_data)
 	router = net_if_ipv6_router_find_default(iface, NULL);
 	if (router) {
 		PR("IPv6 default router :\n");
-		PR("\t%s%s\n",
-		   net_sprint_ipv6_addr(&router->address.in6_addr),
+		PR("\t%s%s\n", net_sprint_ipv6_addr(&router->address.in6_addr),
 		   router->is_infinite ? " infinite" : "");
 	}
 #endif /* CONFIG_NET_NATIVE_IPV6 */
@@ -489,25 +460,18 @@ skip_ipv6:
 #endif
 
 	if (ipv6) {
-		PR("IPv6 hop limit           : %d\n",
-		   ipv6->hop_limit);
-		PR("IPv6 base reachable time : %d\n",
-		   ipv6->base_reachable_time);
-		PR("IPv6 reachable time      : %d\n",
-		   ipv6->reachable_time);
-		PR("IPv6 retransmit timer    : %d\n",
-		   ipv6->retrans_timer);
+		PR("IPv6 hop limit           : %d\n", ipv6->hop_limit);
+		PR("IPv6 base reachable time : %d\n", ipv6->base_reachable_time);
+		PR("IPv6 reachable time      : %d\n", ipv6->reachable_time);
+		PR("IPv6 retransmit timer    : %d\n", ipv6->retrans_timer);
 	}
 
 #if defined(CONFIG_NET_DHCPV6)
 	if (net_if_flag_is_set(iface, NET_IF_IPV6)) {
 		if (iface->config.dhcpv6.state != NET_DHCPV6_DISABLED) {
-			PR("DHCPv6 renewal time (T1) : %llu ms\n",
-			   iface->config.dhcpv6.t1);
-			PR("DHCPv6 rebind time (T2)  : %llu ms\n",
-			   iface->config.dhcpv6.t2);
-			PR("DHCPv6 expire time       : %llu ms\n",
-			   iface->config.dhcpv6.expire);
+			PR("DHCPv6 renewal time (T1) : %llu ms\n", iface->config.dhcpv6.t1);
+			PR("DHCPv6 rebind time (T2)  : %llu ms\n", iface->config.dhcpv6.t2);
+			PR("DHCPv6 expire time       : %llu ms\n", iface->config.dhcpv6.expire);
 			if (iface->config.dhcpv6.params.request_addr) {
 				PR("DHCPv6 address           : %s\n",
 				   net_sprint_ipv6_addr(&iface->config.dhcpv6.addr));
@@ -533,9 +497,8 @@ skip_ipv6:
 #if defined(CONFIG_NET_L2_IEEE802154)
 		(net_if_l2(iface) == &NET_L2_GET_NAME(IEEE802154)) ||
 #endif
-		 0) {
-		PR_WARNING("%s not %s for this interface.\n", "IPv4",
-			   "supported");
+		0) {
+		PR_WARNING("%s not %s for this interface.\n", "IPv4", "supported");
 		return;
 	}
 
@@ -556,12 +519,10 @@ skip_ipv6:
 			continue;
 		}
 
-		PR("\t%s/%s %s %s%s\n",
-		   net_sprint_ipv4_addr(&unicast->address.in_addr),
+		PR("\t%s/%s %s %s%s\n", net_sprint_ipv4_addr(&unicast->address.in_addr),
 		   net_sprint_ipv4_addr(&ipv4->unicast[i].netmask),
 
-		   addrtype2str(unicast->addr_type),
-		   addrstate2str(unicast->addr_state),
+		   addrtype2str(unicast->addr_type), addrstate2str(unicast->addr_state),
 		   unicast->is_infinite ? " infinite" : "");
 
 		count++;
@@ -594,30 +555,25 @@ skip_ipv6:
 skip_ipv4:
 
 	if (ipv4) {
-		PR("IPv4 gateway : %s\n",
-		   net_sprint_ipv4_addr(&ipv4->gw));
+		PR("IPv4 gateway : %s\n", net_sprint_ipv4_addr(&ipv4->gw));
 	}
 #endif /* CONFIG_NET_IPV4 */
 
 #if defined(CONFIG_NET_DHCPV4)
 	if (net_if_flag_is_set(iface, NET_IF_IPV4)) {
 		if (iface->config.dhcpv4.state != NET_DHCPV4_DISABLED) {
-			PR("DHCPv4 lease time : %u\n",
-			   iface->config.dhcpv4.lease_time);
-			PR("DHCPv4 renew time : %u\n",
-			   iface->config.dhcpv4.renewal_time);
+			PR("DHCPv4 lease time : %u\n", iface->config.dhcpv4.lease_time);
+			PR("DHCPv4 renew time : %u\n", iface->config.dhcpv4.renewal_time);
 			PR("DHCPv4 server     : %s\n",
 			   net_sprint_ipv4_addr(&iface->config.dhcpv4.server_id));
 			PR("DHCPv4 requested  : %s\n",
 			   net_sprint_ipv4_addr(&iface->config.dhcpv4.requested_ip));
 			PR("DHCPv4 state      : %s\n",
 			   net_dhcpv4_state_name(iface->config.dhcpv4.state));
-			PR("DHCPv4 attempts   : %d\n",
-			   iface->config.dhcpv4.attempts);
+			PR("DHCPv4 attempts   : %d\n", iface->config.dhcpv4.attempts);
 		}
 
-		PR("DHCPv4 state      : %s\n",
-		   net_dhcpv4_state_name(iface->config.dhcpv4.state));
+		PR("DHCPv4 state      : %s\n", net_dhcpv4_state_name(iface->config.dhcpv4.state));
 	}
 #endif /* CONFIG_NET_DHCPV4 */
 }
@@ -626,7 +582,7 @@ static int cmd_net_set_mac(const struct shell *sh, size_t argc, char *argv[])
 {
 #if !defined(CONFIG_NET_L2_ETHERNET) || !defined(CONFIG_NET_L2_ETHERNET_MGMT)
 	PR_WARNING("Unsupported command, please enable CONFIG_NET_L2_ETHERNET "
-		"and CONFIG_NET_L2_ETHERNET_MGMT\n");
+		   "and CONFIG_NET_L2_ETHERNET_MGMT\n");
 	return -ENOEXEC;
 #else
 	struct net_if *iface;
@@ -677,9 +633,8 @@ static int cmd_net_set_mac(const struct shell *sh, size_t argc, char *argv[])
 		goto err;
 	}
 
-	PR_INFO("MAC address set to %s\n",
-		net_sprint_ll_addr(net_if_get_link_addr(iface)->addr,
-		net_if_get_link_addr(iface)->len));
+	PR_INFO("MAC address set to %s\n", net_sprint_ll_addr(net_if_get_link_addr(iface)->addr,
+							      net_if_get_link_addr(iface)->len));
 
 	return 0;
 err:
@@ -768,8 +723,7 @@ static int cmd_net_iface(const struct shell *sh, size_t argc, char *argv[])
 #if defined(CONFIG_NET_HOSTNAME_ENABLE)
 	PR("Hostname: %s\n", net_hostname_get());
 #endif
-	PR("Default interface: %d\n\n",
-	   net_if_get_by_iface(net_if_get_default()));
+	PR("Default interface: %d\n\n", net_if_get_by_iface(net_if_get_default()));
 
 	user_data.sh = sh;
 	user_data.user_data = iface;
@@ -846,7 +800,7 @@ static int cmd_net_link_speed(const struct shell *sh, size_t argc, char *argv[])
 	}
 
 	for (int k = 2; k < argc; k++) {
-		if ((k + 1 < argc) && (argv[k+1][0] == 'h')) {
+		if ((k + 1 < argc) && (argv[k + 1][0] == 'h')) {
 			half_duplex = true;
 		} else {
 			half_duplex = false;
@@ -867,7 +821,7 @@ static int cmd_net_link_speed(const struct shell *sh, size_t argc, char *argv[])
 			speed |= half_duplex ? LINK_HALF_100BASE : LINK_FULL_100BASE;
 			break;
 		case 1000:
-			speed |= half_duplex ? LINK_HALF_1000BASE :  LINK_FULL_1000BASE;
+			speed |= half_duplex ? LINK_HALF_1000BASE : LINK_FULL_1000BASE;
 			break;
 		case 2500:
 			if (half_duplex) {
@@ -903,9 +857,9 @@ static int cmd_net_link_speed(const struct shell *sh, size_t argc, char *argv[])
 
 #endif /* CONFIG_NET_SHELL_DYN_CMD_COMPLETION */
 
-SHELL_STATIC_SUBCMD_SET_CREATE(net_cmd_iface,
-	SHELL_CMD(up, IFACE_DYN_CMD,
-		  "'net iface up <index>' takes network interface up.",
+SHELL_STATIC_SUBCMD_SET_CREATE(
+	net_cmd_iface,
+	SHELL_CMD(up, IFACE_DYN_CMD, "'net iface up <index>' takes network interface up.",
 		  cmd_net_iface_up),
 	SHELL_CMD(down, IFACE_DYN_CMD,
 		  "'net iface down <index>' takes network interface "
@@ -928,9 +882,7 @@ SHELL_STATIC_SUBCMD_SET_CREATE(net_cmd_iface,
 		  " sets link speed for the network interface.",
 		  cmd_net_link_speed),
 #endif /* CONFIG_ETH_PHY_DRIVER */
-	SHELL_SUBCMD_SET_END
-);
+	SHELL_SUBCMD_SET_END);
 
-SHELL_SUBCMD_ADD((net), iface, &net_cmd_iface,
-		 "Print information about network interfaces.",
+SHELL_SUBCMD_ADD((net), iface, &net_cmd_iface, "Print information about network interfaces.",
 		 cmd_net_iface, 1, 1);

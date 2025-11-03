@@ -122,8 +122,29 @@ static const struct device *dsa_port_get_phy(const struct device *dev)
 	return cfg->phy_dev;
 }
 
+#if CONFIG_NET_VLAN
+static int dsa_port_vlan_setup(const struct device *dev, struct net_if *iface, uint16_t tag,
+			       bool enable)
+{
+	const struct device *dev = net_if_get_device(iface);
+	struct dsa_switch_context *dsa_switch_ctx = dev->data;
+
+	if (!dsa_switch_ctx->dapi->port_vlan_filtering) {
+		return -ENOSYS;
+	}
+
+	if (dsa_switch_ctx->dapi->port_vlan_add != NULL) {
+		return dsa_switch_ctx->dapi->port_vlan_setup(dev, iface, tag, enable);
+	}
+	return -ENOSYS;
+}
+#endif
+
 const struct ethernet_api dsa_eth_api = {
 	.iface_api.init = dsa_port_iface_init,
 	.get_phy = dsa_port_get_phy,
 	.send = dsa_xmit,
+#if CONFIG_NET_VLAN
+	.vlan_setup = dsa_port_vlan_setup,
+#endif
 };

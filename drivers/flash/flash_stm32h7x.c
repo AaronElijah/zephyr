@@ -33,7 +33,7 @@ LOG_MODULE_REGISTER(LOG_DOMAIN);
 /* Let's wait for double the max erase time to be sure that the operation is
  * completed.
  */
-#define STM32H7_FLASH_TIMEOUT     (2 * DT_PROP(DT_INST(0, st_stm32_nv_flash), max_erase_time))
+#define STM32H7_FLASH_TIMEOUT        (2 * DT_PROP(DT_INST(0, st_stm32_nv_flash), max_erase_time))
 /* No information in documentation about that. */
 #define STM32H7_FLASH_OPT_TIMEOUT_MS 800
 
@@ -61,7 +61,7 @@ LOG_MODULE_REGISTER(LOG_DOMAIN);
 #define DISCONTINUOUS_BANKS         (REAL_FLASH_SIZE_KB < STM32H7_SERIES_MAX_FLASH_KB)
 #define NUMBER_OF_BANKS             2
 #else
-#define NUMBER_OF_BANKS             1
+#define NUMBER_OF_BANKS 1
 #endif
 
 struct flash_stm32_sector_t {
@@ -239,8 +239,7 @@ int flash_stm32_get_wp_sectors(const struct device *dev, uint64_t *protected_sec
 	*protected_sectors = (~regs->WPSN_CUR1 & WP_MSK) >> WP_POS;
 #ifdef DUAL_BANK
 	/* Available only for STM32H7x */
-	uint64_t proctected_sectors_2 =
-		(~regs->WPSN_CUR2 & WP_MSK) >> WP_POS;
+	uint64_t proctected_sectors_2 = (~regs->WPSN_CUR2 & WP_MSK) >> WP_POS;
 	const uint32_t sectors_per_bank = __builtin_popcount(WP_MSK);
 	*protected_sectors |= proctected_sectors_2 << sectors_per_bank;
 #endif /* DUAL_BANK */
@@ -633,7 +632,9 @@ int flash_stm32_write_range(const struct device *dev, unsigned int offset, const
 	int rc = 0;
 	int i, j;
 	const uint8_t ndwords = FLASH_NB_32BITWORD_IN_FLASHWORD / 2;
-	const uint8_t nbytes = FLASH_NB_32BITWORD_IN_FLASHWORD * 4;
+	enum {
+		nbytes = FLASH_NB_32BITWORD_IN_FLASHWORD * 4
+	}; // enums are compile-time integer constants so allow this code to pass MISRA 2012 checks
 	uint8_t unaligned_datas[nbytes];
 
 	for (i = 0; i < len && i + nbytes <= len; i += nbytes, offset += nbytes) {

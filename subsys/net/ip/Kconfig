@@ -350,6 +350,15 @@ config NET_SHELL_REQUIRE_TX_THREAD
 	  Hidden symbol indicating that network shell requires separate TX
 	  thread due to possible deadlocks during shell/net stack operations.
 
+config NET_SHELL_MAX_IFACES
+    int "Upper bound for shell iface helper rows"
+    default 0
+    help
+      Upper bound used to size shell helper buffers indexed by interface ID.
+      If 0 (default), Zephyr will derive a conservative bound from generic
+      networking Kconfig (IPv4/IPv6 logical iface maxima, VLAN count, loopback).
+      Increase this if your board creates more net_if instances (e.g., DSA ports).
+
 endif # NET_SHELL
 
 config NET_TC_TX_COUNT
