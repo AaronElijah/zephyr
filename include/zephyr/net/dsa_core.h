@@ -147,8 +147,11 @@ struct dsa_api {
 	/** Switch setup */
 	int (*switch_setup)(const struct dsa_switch_context *dsa_switch_ctx);
 
-	/** Tagged on phylink device API from linux for convenience */
-	/** linux kernel treats phylink MAC operations in a seperate struct nominally */
+	/** Get the device capabilities */
+	enum ethernet_hw_caps (*get_capabilities)(const struct device *dev);
+
+	/** Added phylink device API from linux for convenience */
+	/** linux kernel treats phylink MAC operations in a seperate struct */
 	/** Port MAC enable/disable */
 	int (*port_enable)(const struct device *dev, int port, struct phy_link_state *phy);
 	int (*port_disable)(const struct device *dev, int port);
@@ -162,12 +165,10 @@ struct dsa_api {
 	int (*phylink_mac_link_up)(const struct device *dev, int port, unsigned int mode, int speed,
 				   int duplex, bool tx_pause, bool rx_pause);
 	/** VLAN support */
-	int (*port_vlan_filtering)(const struct device *dev, int port, bool vlan_filtering);
-	int (*port_vlan_add)(const struct device *dev, int port, uint16_t vid, bool untagged,
-			     bool pvid);
-	int (*port_vlan_del)(
-		const struct device *dev, int port,
-		uint16_t vid); // TODO: see what flags, arguments, etc for more complex cases
+	int (*port_vlan_filtering)(const struct device *dev, bool vlan_filtering);
+	int (*port_vlan_add)(const struct device *dev, uint16_t vid, bool untagged, bool pvid);
+	int (*port_vlan_del)(const struct device *dev,
+			     uint16_t vid); // TODO: add flags for more cases
 	/*
 	 * Forwarding database
 	 */
@@ -361,7 +362,7 @@ int dsa_port_phylink_mac_interface_config(struct net_if *iface, int port,
  *
  * @return 		0 if successful, negative if error
  */
-int dsa_port_vlan_filtering(struct net_if *iface, int port, bool vlan_filtering);
+int dsa_port_vlan_filtering(struct net_if *iface, bool vlan_filtering);
 
 /**
  * @brief 		Add VLAN to switch port
@@ -372,7 +373,7 @@ int dsa_port_vlan_filtering(struct net_if *iface, int port, bool vlan_filtering)
  *
  * @return 		0 if successful, negative if error
  */
-int dsa_port_vlan_add(struct net_if *iface, int port, uint16_t vid, bool untagged, bool pvid);
+int dsa_port_vlan_add(struct net_if *iface, uint16_t vid, bool untagged, bool pvid);
 
 /**
  * @brief        Remove VLAN from switch port
@@ -383,7 +384,7 @@ int dsa_port_vlan_add(struct net_if *iface, int port, uint16_t vid, bool untagge
  *
  * @return 		0 if successful, negative if error
  */
-int dsa_port_vlan_del(struct net_if *iface, int port, uint16_t vid);
+int dsa_port_vlan_del(struct net_if *iface, uint16_t vid);
 
 /**
  * @brief       Add LAG group to switch

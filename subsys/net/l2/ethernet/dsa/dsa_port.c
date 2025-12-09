@@ -122,21 +122,42 @@ static const struct device *dsa_port_get_phy(const struct device *dev)
 	return cfg->phy_dev;
 }
 
+enum ethernet_hw_caps dsa_port_get_capabilities(const struct device *dev)
+{
+	struct dsa_switch_context *dsa_switch_ctx = dev->data;
+	uint32_t caps = 0;
+
+#ifdef CONFIG_NET_L2_PTP
+	if (dsa_port_get_ptp_clock(dev) != NULL) {
+		caps |= ETHERNET_PTP;
+	}
+#endif
+
+	if (dsa_switch_ctx->dapi->get_capabilities) {
+		caps |= dsa_switch_ctx->dapi->get_capabilities(dev);
+	}
+
+	return caps;
+}
+
 #if CONFIG_NET_VLAN
 static int dsa_port_vlan_setup(const struct device *dev, struct net_if *iface, uint16_t tag,
 			       bool enable)
 {
-	const struct device *dev = net_if_get_device(iface);
+	int ret;
 	struct dsa_switch_context *dsa_switch_ctx = dev->data;
 
-	if (!dsa_switch_ctx->dapi->port_vlan_filtering) {
+	if (!dsa_switch_ctx->dapi->port_vlan_filtering || !dsa_switch_ctx->dapi->port_vlan_add) {
 		return -ENOSYS;
 	}
 
-	if (dsa_switch_ctx->dapi->port_vlan_add != NULL) {
-		return dsa_switch_ctx->dapi->port_vlan_setup(dev, iface, tag, enable);
+	ret = dsa_switch_ctx->dapi->port_vlan_filtering(dev, enable);
+	if (ret) {
+		return ret;
 	}
-	return -ENOSYS;
+
+	return dsa_switch_ctx->dapi->port_vlan_add(dev, tag, false,
+						   false); // untagged=false, pvid=false
 }
 #endif
 
@@ -147,4 +168,5 @@ const struct ethernet_api dsa_eth_api = {
 #if CONFIG_NET_VLAN
 	.vlan_setup = dsa_port_vlan_setup,
 #endif
+	.get_capabilities = dsa_port_get_capabilities,
 };

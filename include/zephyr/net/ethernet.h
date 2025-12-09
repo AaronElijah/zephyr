@@ -49,7 +49,7 @@ extern "C" {
  * @{
  */
 
-#define NET_ETH_ADDR_LEN		6U /**< Ethernet MAC address length */
+#define NET_ETH_ADDR_LEN 6U /**< Ethernet MAC address length */
 
 /** Ethernet address */
 struct net_eth_addr {
@@ -61,147 +61,147 @@ struct net_eth_addr {
 #define NET_ETH_HDR(pkt) ((struct net_eth_hdr *)net_pkt_data(pkt))
 
 /* zephyr-keep-sorted-start */
-#define NET_ETH_PTYPE_ALL		0x0003 /* from linux/if_ether.h */
-#define NET_ETH_PTYPE_ARP		0x0806
-#define NET_ETH_PTYPE_CAN		0x000C /* CAN: Controller Area Network */
-#define NET_ETH_PTYPE_CANFD		0x000D /* CANFD: CAN flexible data rate*/
-#define NET_ETH_PTYPE_EAPOL		0x888e
-#define NET_ETH_PTYPE_ECAT		0x88a4
-#define NET_ETH_PTYPE_HDLC		0x0019 /* HDLC frames (like in PPP) */
-#define NET_ETH_PTYPE_IEEE802154	0x00F6 /* from linux/if_ether.h: IEEE802.15.4 frame */
-#define NET_ETH_PTYPE_IP		0x0800
-#define NET_ETH_PTYPE_IPV6		0x86dd
-#define NET_ETH_PTYPE_LLDP		0x88cc
-#define NET_ETH_PTYPE_PTP		0x88f7
-#define NET_ETH_PTYPE_TSN		0x22f0 /* TSN (IEEE 1722) packet */
-#define NET_ETH_PTYPE_VLAN		0x8100
+#define NET_ETH_PTYPE_ALL        0x0003 /* from linux/if_ether.h */
+#define NET_ETH_PTYPE_ARP        0x0806
+#define NET_ETH_PTYPE_CAN        0x000C /* CAN: Controller Area Network */
+#define NET_ETH_PTYPE_CANFD      0x000D /* CANFD: CAN flexible data rate*/
+#define NET_ETH_PTYPE_EAPOL      0x888e
+#define NET_ETH_PTYPE_ECAT       0x88a4
+#define NET_ETH_PTYPE_HDLC       0x0019 /* HDLC frames (like in PPP) */
+#define NET_ETH_PTYPE_IEEE802154 0x00F6 /* from linux/if_ether.h: IEEE802.15.4 frame */
+#define NET_ETH_PTYPE_IP         0x0800
+#define NET_ETH_PTYPE_IPV6       0x86dd
+#define NET_ETH_PTYPE_LLDP       0x88cc
+#define NET_ETH_PTYPE_PTP        0x88f7
+#define NET_ETH_PTYPE_TSN        0x22f0 /* TSN (IEEE 1722) packet */
+#define NET_ETH_PTYPE_VLAN       0x8100
 /* zephyr-keep-sorted-stop */
 
 /* zephyr-keep-sorted-start re(^#define) */
 #if !defined(ETH_P_8021Q)
-#define ETH_P_8021Q	NET_ETH_PTYPE_VLAN
+#define ETH_P_8021Q NET_ETH_PTYPE_VLAN
 #endif
 #if !defined(ETH_P_ALL)
-#define ETH_P_ALL	NET_ETH_PTYPE_ALL
+#define ETH_P_ALL NET_ETH_PTYPE_ALL
 #endif
 #if !defined(ETH_P_ARP)
-#define ETH_P_ARP	NET_ETH_PTYPE_ARP
+#define ETH_P_ARP NET_ETH_PTYPE_ARP
 #endif
 #if !defined(ETH_P_CAN)
-#define ETH_P_CAN	NET_ETH_PTYPE_CAN
+#define ETH_P_CAN NET_ETH_PTYPE_CAN
 #endif
 #if !defined(ETH_P_CANFD)
-#define ETH_P_CANFD	NET_ETH_PTYPE_CANFD
+#define ETH_P_CANFD NET_ETH_PTYPE_CANFD
 #endif
 #if !defined(ETH_P_EAPOL)
-#define ETH_P_EAPOL	NET_ETH_PTYPE_EAPOL
+#define ETH_P_EAPOL NET_ETH_PTYPE_EAPOL
 #endif
 #if !defined(ETH_P_ECAT)
-#define ETH_P_ECAT	NET_ETH_PTYPE_ECAT
+#define ETH_P_ECAT NET_ETH_PTYPE_ECAT
 #endif
 #if !defined(ETH_P_HDLC)
-#define ETH_P_HDLC	NET_ETH_PTYPE_HDLC
+#define ETH_P_HDLC NET_ETH_PTYPE_HDLC
 #endif
 #if !defined(ETH_P_IEEE802154)
 #define ETH_P_IEEE802154 NET_ETH_PTYPE_IEEE802154
 #endif
 #if !defined(ETH_P_IP)
-#define ETH_P_IP	NET_ETH_PTYPE_IP
+#define ETH_P_IP NET_ETH_PTYPE_IP
 #endif
 #if !defined(ETH_P_IPV6)
-#define ETH_P_IPV6	NET_ETH_PTYPE_IPV6
+#define ETH_P_IPV6 NET_ETH_PTYPE_IPV6
 #endif
 #if !defined(ETH_P_TSN)
-#define ETH_P_TSN	NET_ETH_PTYPE_TSN
+#define ETH_P_TSN NET_ETH_PTYPE_TSN
 #endif
 /* zephyr-keep-sorted-stop */
 
 /** @endcond */
 
-#define NET_ETH_MINIMAL_FRAME_SIZE	60   /**< Minimum Ethernet frame size */
-#define NET_ETH_MTU			1500 /**< Ethernet MTU size */
+#define NET_ETH_MINIMAL_FRAME_SIZE 60   /**< Minimum Ethernet frame size */
+#define NET_ETH_MTU                1500 /**< Ethernet MTU size */
 
 /** @cond INTERNAL_HIDDEN */
 
 #if defined(CONFIG_NET_VLAN)
-#define _NET_ETH_MAX_HDR_SIZE		(sizeof(struct net_eth_vlan_hdr))
+#define _NET_ETH_MAX_HDR_SIZE (sizeof(struct net_eth_vlan_hdr))
 #else
-#define _NET_ETH_MAX_HDR_SIZE		(sizeof(struct net_eth_hdr))
+#define _NET_ETH_MAX_HDR_SIZE (sizeof(struct net_eth_hdr))
 #endif
 
-#define _NET_ETH_MAX_FRAME_SIZE	(NET_ETH_MTU + _NET_ETH_MAX_HDR_SIZE)
+#define _NET_ETH_MAX_FRAME_SIZE (NET_ETH_MTU + _NET_ETH_MAX_HDR_SIZE)
 
 #define NET_ETH_MAX_FRAME_SIZE (_NET_ETH_MAX_FRAME_SIZE + DSA_TAG_SIZE)
-#define NET_ETH_MAX_HDR_SIZE (_NET_ETH_MAX_HDR_SIZE + DSA_TAG_SIZE)
+#define NET_ETH_MAX_HDR_SIZE   (_NET_ETH_MAX_HDR_SIZE + DSA_TAG_SIZE)
 
-#define NET_ETH_VLAN_HDR_SIZE	4
+#define NET_ETH_VLAN_HDR_SIZE 4
 
 /** @endcond */
 
 /** @brief Ethernet hardware capabilities */
 enum ethernet_hw_caps {
 	/** TX Checksum offloading supported for all of IPv4, UDP, TCP */
-	ETHERNET_HW_TX_CHKSUM_OFFLOAD	= BIT(0),
+	ETHERNET_HW_TX_CHKSUM_OFFLOAD = BIT(0),
 
 	/** RX Checksum offloading supported for all of IPv4, UDP, TCP */
-	ETHERNET_HW_RX_CHKSUM_OFFLOAD	= BIT(1),
+	ETHERNET_HW_RX_CHKSUM_OFFLOAD = BIT(1),
 
 	/** VLAN supported */
-	ETHERNET_HW_VLAN		= BIT(2),
+	ETHERNET_HW_VLAN = BIT(2),
 
 	/** 10 Mbits link supported */
-	ETHERNET_LINK_10BASE		= BIT(3),
+	ETHERNET_LINK_10BASE = BIT(3),
 
 	/** 100 Mbits link supported */
-	ETHERNET_LINK_100BASE		= BIT(4),
+	ETHERNET_LINK_100BASE = BIT(4),
 
 	/** 1 Gbits link supported */
-	ETHERNET_LINK_1000BASE		= BIT(5),
+	ETHERNET_LINK_1000BASE = BIT(5),
 
 	/** 2.5 Gbits link supported */
-	ETHERNET_LINK_2500BASE		= BIT(6),
+	ETHERNET_LINK_2500BASE = BIT(6),
 
 	/** 5 Gbits link supported */
-	ETHERNET_LINK_5000BASE		= BIT(7),
+	ETHERNET_LINK_5000BASE = BIT(7),
 
 	/** IEEE 802.1AS (gPTP) clock supported */
-	ETHERNET_PTP			= BIT(8),
+	ETHERNET_PTP = BIT(8),
 
 	/** IEEE 802.1Qav (credit-based shaping) supported */
-	ETHERNET_QAV			= BIT(9),
+	ETHERNET_QAV = BIT(9),
 
 	/** Promiscuous mode supported */
-	ETHERNET_PROMISC_MODE		= BIT(10),
+	ETHERNET_PROMISC_MODE = BIT(10),
 
 	/** Priority queues available */
-	ETHERNET_PRIORITY_QUEUES	= BIT(11),
+	ETHERNET_PRIORITY_QUEUES = BIT(11),
 
 	/** MAC address filtering supported */
-	ETHERNET_HW_FILTERING		= BIT(12),
+	ETHERNET_HW_FILTERING = BIT(12),
 
 	/** Link Layer Discovery Protocol supported */
-	ETHERNET_LLDP			= BIT(13),
+	ETHERNET_LLDP = BIT(13),
 
 	/** VLAN Tag stripping */
-	ETHERNET_HW_VLAN_TAG_STRIP	= BIT(14),
+	ETHERNET_HW_VLAN_TAG_STRIP = BIT(14),
 
 	/** DSA switch user port */
-	ETHERNET_DSA_USER_PORT		= BIT(15),
+	ETHERNET_DSA_USER_PORT = BIT(15),
 
 	/** DSA switch conduit port */
-	ETHERNET_DSA_CONDUIT_PORT	= BIT(16),
+	ETHERNET_DSA_CONDUIT_PORT = BIT(16),
 
 	/** IEEE 802.1Qbv (scheduled traffic) supported */
-	ETHERNET_QBV			= BIT(17),
+	ETHERNET_QBV = BIT(17),
 
 	/** IEEE 802.1Qbu (frame preemption) supported */
-	ETHERNET_QBU			= BIT(18),
+	ETHERNET_QBU = BIT(18),
 
 	/** TXTIME supported */
-	ETHERNET_TXTIME			= BIT(19),
+	ETHERNET_TXTIME = BIT(19),
 
 	/** TX-Injection supported */
-	ETHERNET_TXINJECTION_MODE	= BIT(20),
+	ETHERNET_TXINJECTION_MODE = BIT(20),
 };
 
 /** @cond INTERNAL_HIDDEN */
@@ -405,8 +405,7 @@ struct ethernet_qbu_param {
 		uint32_t release_advance;
 
 		/** sequence of framePreemptionAdminStatus values */
-		enum ethernet_qbu_preempt_status
-				frame_preempt_statuses[NET_TC_TX_COUNT];
+		enum ethernet_qbu_preempt_status frame_preempt_statuses[NET_TC_TX_COUNT];
 
 		/** True if Qbu is enabled or not */
 		bool enabled;
@@ -418,7 +417,7 @@ struct ethernet_qbu_param {
 		 * Additional fragment size (from Qbr). The minimum non-final
 		 * fragment size is (additional_fragment_size + 1) * 64 octets
 		 */
-		uint8_t additional_fragment_size : 2;
+		uint8_t additional_fragment_size: 2;
 	};
 };
 
@@ -471,19 +470,19 @@ struct ethernet_txtime_param {
 /** Protocols that are supported by checksum offloading */
 enum ethernet_checksum_support {
 	/** Device does not support any L3/L4 checksum offloading */
-	ETHERNET_CHECKSUM_SUPPORT_NONE			= NET_IF_CHECKSUM_NONE_BIT,
+	ETHERNET_CHECKSUM_SUPPORT_NONE = NET_IF_CHECKSUM_NONE_BIT,
 	/** Device supports checksum offloading for the IPv4 header */
-	ETHERNET_CHECKSUM_SUPPORT_IPV4_HEADER		= NET_IF_CHECKSUM_IPV4_HEADER_BIT,
+	ETHERNET_CHECKSUM_SUPPORT_IPV4_HEADER = NET_IF_CHECKSUM_IPV4_HEADER_BIT,
 	/** Device supports checksum offloading for ICMPv4 payload (implies IPv4 header) */
-	ETHERNET_CHECKSUM_SUPPORT_IPV4_ICMP		= NET_IF_CHECKSUM_IPV4_ICMP_BIT,
+	ETHERNET_CHECKSUM_SUPPORT_IPV4_ICMP = NET_IF_CHECKSUM_IPV4_ICMP_BIT,
 	/** Device supports checksum offloading for the IPv6 header */
-	ETHERNET_CHECKSUM_SUPPORT_IPV6_HEADER		= NET_IF_CHECKSUM_IPV6_HEADER_BIT,
+	ETHERNET_CHECKSUM_SUPPORT_IPV6_HEADER = NET_IF_CHECKSUM_IPV6_HEADER_BIT,
 	/** Device supports checksum offloading for ICMPv6 payload (implies IPv6 header) */
-	ETHERNET_CHECKSUM_SUPPORT_IPV6_ICMP		= NET_IF_CHECKSUM_IPV6_ICMP_BIT,
+	ETHERNET_CHECKSUM_SUPPORT_IPV6_ICMP = NET_IF_CHECKSUM_IPV6_ICMP_BIT,
 	/** Device supports TCP checksum offloading for all supported IP protocols */
-	ETHERNET_CHECKSUM_SUPPORT_TCP			= NET_IF_CHECKSUM_TCP_BIT,
+	ETHERNET_CHECKSUM_SUPPORT_TCP = NET_IF_CHECKSUM_TCP_BIT,
 	/** Device supports UDP checksum offloading for all supported IP protocols */
-	ETHERNET_CHECKSUM_SUPPORT_UDP			= NET_IF_CHECKSUM_UDP_BIT,
+	ETHERNET_CHECKSUM_SUPPORT_UDP = NET_IF_CHECKSUM_UDP_BIT,
 };
 
 /** @cond INTERNAL_HIDDEN */
@@ -540,13 +539,11 @@ struct ethernet_api {
 	enum ethernet_hw_caps (*get_capabilities)(const struct device *dev);
 
 	/** Set specific hardware configuration */
-	int (*set_config)(const struct device *dev,
-			  enum ethernet_config_type type,
+	int (*set_config)(const struct device *dev, enum ethernet_config_type type,
 			  const struct ethernet_config *config);
 
 	/** Get hardware specific configuration */
-	int (*get_config)(const struct device *dev,
-			  enum ethernet_config_type type,
+	int (*get_config)(const struct device *dev, enum ethernet_config_type type,
 			  struct ethernet_config *config);
 
 	/** The IP stack will call this function when a VLAN tag is enabled
@@ -555,8 +552,8 @@ struct ethernet_api {
 	 * this information if needed.
 	 */
 #if defined(CONFIG_NET_VLAN)
-	int (*vlan_setup)(const struct device *dev, struct net_if *iface,
-			  uint16_t tag, bool enable);
+	int (*vlan_setup)(const struct device *dev, struct net_if *iface, uint16_t tag,
+			  bool enable);
 #endif /* CONFIG_NET_VLAN */
 
 	/** Return ptp_clock device that is tied to this ethernet device */
@@ -703,10 +700,10 @@ struct ethernet_context {
 #endif
 
 	/** Is network carrier up */
-	bool is_net_carrier_up : 1;
+	bool is_net_carrier_up: 1;
 
 	/** Is this context already initialized */
-	bool is_init : 1;
+	bool is_init: 1;
 
 	/** Types of Ethernet network interfaces */
 	enum ethernet_if_types eth_if_type;
@@ -719,7 +716,7 @@ struct ethernet_context {
  */
 void ethernet_init(struct net_if *iface);
 
-#define ETHERNET_L2_CTX_TYPE	struct ethernet_context
+#define ETHERNET_L2_CTX_TYPE struct ethernet_context
 
 /* Separate header for VLAN as some of device interfaces might not
  * support VLAN.
@@ -745,12 +742,8 @@ struct net_eth_vlan_hdr {
  */
 static inline bool net_eth_is_addr_broadcast(struct net_eth_addr *addr)
 {
-	if (addr->addr[0] == 0xff &&
-	    addr->addr[1] == 0xff &&
-	    addr->addr[2] == 0xff &&
-	    addr->addr[3] == 0xff &&
-	    addr->addr[4] == 0xff &&
-	    addr->addr[5] == 0xff) {
+	if (addr->addr[0] == 0xff && addr->addr[1] == 0xff && addr->addr[2] == 0xff &&
+	    addr->addr[3] == 0xff && addr->addr[4] == 0xff && addr->addr[5] == 0xff) {
 		return true;
 	}
 
@@ -766,12 +759,8 @@ static inline bool net_eth_is_addr_broadcast(struct net_eth_addr *addr)
  */
 static inline bool net_eth_is_addr_all_zeroes(struct net_eth_addr *addr)
 {
-	if (addr->addr[0] == 0x00 &&
-	    addr->addr[1] == 0x00 &&
-	    addr->addr[2] == 0x00 &&
-	    addr->addr[3] == 0x00 &&
-	    addr->addr[4] == 0x00 &&
-	    addr->addr[5] == 0x00) {
+	if (addr->addr[0] == 0x00 && addr->addr[1] == 0x00 && addr->addr[2] == 0x00 &&
+	    addr->addr[3] == 0x00 && addr->addr[4] == 0x00 && addr->addr[5] == 0x00) {
 		return true;
 	}
 
@@ -787,12 +776,8 @@ static inline bool net_eth_is_addr_all_zeroes(struct net_eth_addr *addr)
  */
 static inline bool net_eth_is_addr_unspecified(struct net_eth_addr *addr)
 {
-	if (addr->addr[0] == 0x00 &&
-	    addr->addr[1] == 0x00 &&
-	    addr->addr[2] == 0x00 &&
-	    addr->addr[3] == 0x00 &&
-	    addr->addr[4] == 0x00 &&
-	    addr->addr[5] == 0x00) {
+	if (addr->addr[0] == 0x00 && addr->addr[1] == 0x00 && addr->addr[2] == 0x00 &&
+	    addr->addr[3] == 0x00 && addr->addr[4] == 0x00 && addr->addr[5] == 0x00) {
 		return true;
 	}
 
@@ -809,16 +794,13 @@ static inline bool net_eth_is_addr_unspecified(struct net_eth_addr *addr)
 static inline bool net_eth_is_addr_multicast(struct net_eth_addr *addr)
 {
 #if defined(CONFIG_NET_IPV6)
-	if (addr->addr[0] == 0x33 &&
-	    addr->addr[1] == 0x33) {
+	if (addr->addr[0] == 0x33 && addr->addr[1] == 0x33) {
 		return true;
 	}
 #endif
 
 #if defined(CONFIG_NET_IPV4)
-	if (addr->addr[0] == 0x01 &&
-	    addr->addr[1] == 0x00 &&
-	    addr->addr[2] == 0x5e) {
+	if (addr->addr[0] == 0x01 && addr->addr[1] == 0x00 && addr->addr[2] == 0x5e) {
 		return true;
 	}
 #endif
@@ -860,12 +842,8 @@ static inline bool net_eth_is_addr_valid(struct net_eth_addr *addr)
 static inline bool net_eth_is_addr_lldp_multicast(struct net_eth_addr *addr)
 {
 #if defined(CONFIG_NET_GPTP) || defined(CONFIG_NET_LLDP)
-	if (addr->addr[0] == 0x01 &&
-	    addr->addr[1] == 0x80 &&
-	    addr->addr[2] == 0xc2 &&
-	    addr->addr[3] == 0x00 &&
-	    addr->addr[4] == 0x00 &&
-	    addr->addr[5] == 0x0e) {
+	if (addr->addr[0] == 0x01 && addr->addr[1] == 0x80 && addr->addr[2] == 0xc2 &&
+	    addr->addr[3] == 0x00 && addr->addr[4] == 0x00 && addr->addr[5] == 0x0e) {
 		return true;
 	}
 #else
@@ -885,12 +863,8 @@ static inline bool net_eth_is_addr_lldp_multicast(struct net_eth_addr *addr)
 static inline bool net_eth_is_addr_ptp_multicast(struct net_eth_addr *addr)
 {
 #if defined(CONFIG_NET_GPTP)
-	if (addr->addr[0] == 0x01 &&
-	    addr->addr[1] == 0x1b &&
-	    addr->addr[2] == 0x19 &&
-	    addr->addr[3] == 0x00 &&
-	    addr->addr[4] == 0x00 &&
-	    addr->addr[5] == 0x00) {
+	if (addr->addr[0] == 0x01 && addr->addr[1] == 0x1b && addr->addr[2] == 0x19 &&
+	    addr->addr[3] == 0x00 && addr->addr[4] == 0x00 && addr->addr[5] == 0x00) {
 		return true;
 	}
 #else
@@ -913,8 +887,7 @@ const struct net_eth_addr *net_eth_broadcast_addr(void);
  * @param ipv4_addr IPv4 multicast address
  * @param mac_addr Output buffer for Ethernet address
  */
-void net_eth_ipv4_mcast_to_mac_addr(const struct in_addr *ipv4_addr,
-				    struct net_eth_addr *mac_addr);
+void net_eth_ipv4_mcast_to_mac_addr(const struct in_addr *ipv4_addr, struct net_eth_addr *mac_addr);
 
 /**
  * @brief Convert IPv6 multicast address to Ethernet address.
@@ -932,8 +905,7 @@ void net_eth_ipv6_mcast_to_mac_addr(const struct in6_addr *ipv6_addr,
  *
  * @return Hardware capabilities
  */
-static inline
-enum ethernet_hw_caps net_eth_get_hw_capabilities(struct net_if *iface)
+static inline enum ethernet_hw_caps net_eth_get_hw_capabilities(struct net_if *iface)
 {
 	const struct device *dev = net_if_get_device(iface);
 	const struct ethernet_api *api = (struct ethernet_api *)dev->api;
@@ -963,12 +935,10 @@ enum ethernet_hw_caps net_eth_get_hw_capabilities(struct net_if *iface)
  *
  * @return 0 if ok, <0 if error
  */
-static inline
-int net_eth_get_hw_config(struct net_if *iface, enum ethernet_config_type type,
-			 struct ethernet_config *config)
+static inline int net_eth_get_hw_config(struct net_if *iface, enum ethernet_config_type type,
+					struct ethernet_config *config)
 {
-	const struct ethernet_api *eth =
-		(struct ethernet_api *)net_if_get_device(iface)->api;
+	const struct ethernet_api *eth = (struct ethernet_api *)net_if_get_device(iface)->api;
 
 	if (!eth->get_config) {
 		return -ENOTSUP;
@@ -976,7 +946,6 @@ int net_eth_get_hw_config(struct net_if *iface, enum ethernet_config_type type,
 
 	return eth->get_config(net_if_get_device(iface), type, config);
 }
-
 
 /**
  * @brief Add VLAN tag to the interface.
@@ -1052,8 +1021,7 @@ static inline uint16_t net_eth_get_vlan_tag(struct net_if *iface)
 #if defined(CONFIG_NET_VLAN)
 struct net_if *net_eth_get_vlan_iface(struct net_if *iface, uint16_t tag);
 #else
-static inline
-struct net_if *net_eth_get_vlan_iface(struct net_if *iface, uint16_t tag)
+static inline struct net_if *net_eth_get_vlan_iface(struct net_if *iface, uint16_t tag)
 {
 	ARG_UNUSED(iface);
 	ARG_UNUSED(tag);
@@ -1074,8 +1042,7 @@ struct net_if *net_eth_get_vlan_iface(struct net_if *iface, uint16_t tag)
 #if defined(CONFIG_NET_VLAN) && NET_VLAN_MAX_COUNT > 0
 struct net_if *net_eth_get_vlan_main(struct net_if *iface);
 #else
-static inline
-struct net_if *net_eth_get_vlan_main(struct net_if *iface)
+static inline struct net_if *net_eth_get_vlan_main(struct net_if *iface)
 {
 	ARG_UNUSED(iface);
 
@@ -1097,11 +1064,9 @@ struct net_if *net_eth_get_vlan_main(struct net_if *iface)
  *         false if not.
  */
 #if defined(CONFIG_NET_VLAN)
-bool net_eth_is_vlan_enabled(struct ethernet_context *ctx,
-			     struct net_if *iface);
+bool net_eth_is_vlan_enabled(struct ethernet_context *ctx, struct net_if *iface);
 #else
-static inline bool net_eth_is_vlan_enabled(struct ethernet_context *ctx,
-					   struct net_if *iface)
+static inline bool net_eth_is_vlan_enabled(struct ethernet_context *ctx, struct net_if *iface)
 {
 	ARG_UNUSED(ctx);
 	ARG_UNUSED(iface);
@@ -1150,31 +1115,23 @@ static inline bool net_eth_is_vlan_interface(struct net_if *iface)
 
 #if !defined(CONFIG_ETH_DRIVER_RAW_MODE)
 
-#define Z_ETH_NET_DEVICE_INIT_INSTANCE(node_id, dev_id, name, instance,	\
-				       init_fn, pm, data, config, prio,	\
-				       api, mtu)			\
-	Z_NET_DEVICE_INIT_INSTANCE(node_id, dev_id, name, instance,	\
-				   init_fn, pm, data, config, prio,	\
-				   api, ETHERNET_L2,			\
-				   NET_L2_GET_CTX_TYPE(ETHERNET_L2), mtu)
+#define Z_ETH_NET_DEVICE_INIT_INSTANCE(node_id, dev_id, name, instance, init_fn, pm, data, config, \
+				       prio, api, mtu)                                             \
+	Z_NET_DEVICE_INIT_INSTANCE(node_id, dev_id, name, instance, init_fn, pm, data, config,     \
+				   prio, api, ETHERNET_L2, NET_L2_GET_CTX_TYPE(ETHERNET_L2), mtu)
 
 #else /* CONFIG_ETH_DRIVER_RAW_MODE */
 
-#define Z_ETH_NET_DEVICE_INIT_INSTANCE(node_id, dev_id, name, instance,	\
-				       init_fn, pm, data, config, prio,	\
-				       api, mtu)			\
-	Z_DEVICE_STATE_DEFINE(dev_id);					\
-	Z_DEVICE_DEFINE(node_id, dev_id, name, init_fn, NULL,		\
-			Z_DEVICE_DT_FLAGS(node_id), pm, data,		\
-			config, POST_KERNEL, prio, api,			\
-			&Z_DEVICE_STATE_NAME(dev_id));
+#define Z_ETH_NET_DEVICE_INIT_INSTANCE(node_id, dev_id, name, instance, init_fn, pm, data, config, \
+				       prio, api, mtu)                                             \
+	Z_DEVICE_STATE_DEFINE(dev_id);                                                             \
+	Z_DEVICE_DEFINE(node_id, dev_id, name, init_fn, NULL, Z_DEVICE_DT_FLAGS(node_id), pm,      \
+			data, config, POST_KERNEL, prio, api, &Z_DEVICE_STATE_NAME(dev_id));
 
 #endif /* CONFIG_ETH_DRIVER_RAW_MODE */
 
-#define Z_ETH_NET_DEVICE_INIT(node_id, dev_id, name, init_fn, pm, data,	\
-			      config, prio, api, mtu)			\
-	Z_ETH_NET_DEVICE_INIT_INSTANCE(node_id, dev_id, name, 0,	\
-				       init_fn, pm, data, config, prio,	\
+#define Z_ETH_NET_DEVICE_INIT(node_id, dev_id, name, init_fn, pm, data, config, prio, api, mtu)    \
+	Z_ETH_NET_DEVICE_INIT_INSTANCE(node_id, dev_id, name, 0, init_fn, pm, data, config, prio,  \
 				       api, mtu)
 
 /** @endcond */
@@ -1196,10 +1153,9 @@ static inline bool net_eth_is_vlan_interface(struct net_if *iface)
  * used by the driver. Can be NULL.
  * @param mtu Maximum transfer unit in bytes for this network interface.
  */
-#define ETH_NET_DEVICE_INIT(dev_id, name, init_fn, pm, data, config,	\
-			    prio, api, mtu)				\
-	Z_ETH_NET_DEVICE_INIT(DT_INVALID_NODE, dev_id, name, init_fn,	\
-			      pm, data, config, prio, api, mtu)
+#define ETH_NET_DEVICE_INIT(dev_id, name, init_fn, pm, data, config, prio, api, mtu)               \
+	Z_ETH_NET_DEVICE_INIT(DT_INVALID_NODE, dev_id, name, init_fn, pm, data, config, prio, api, \
+			      mtu)
 
 /**
  * @brief Create multiple Ethernet network interfaces and bind them to network
@@ -1223,10 +1179,9 @@ static inline bool net_eth_is_vlan_interface(struct net_if *iface)
  * used by the driver. Can be NULL.
  * @param mtu Maximum transfer unit in bytes for this network interface.
  */
-#define ETH_NET_DEVICE_INIT_INSTANCE(dev_id, name, instance, init_fn,	\
-				     pm, data, config, prio, api, mtu)	\
-	Z_ETH_NET_DEVICE_INIT_INSTANCE(DT_INVALID_NODE, dev_id, name,	\
-				       instance, init_fn, pm, data,	\
+#define ETH_NET_DEVICE_INIT_INSTANCE(dev_id, name, instance, init_fn, pm, data, config, prio, api, \
+				     mtu)                                                          \
+	Z_ETH_NET_DEVICE_INIT_INSTANCE(DT_INVALID_NODE, dev_id, name, instance, init_fn, pm, data, \
 				       config, prio, api, mtu)
 
 /**
@@ -1245,11 +1200,9 @@ static inline bool net_eth_is_vlan_interface(struct net_if *iface)
  * used by the driver. Can be NULL.
  * @param mtu Maximum transfer unit in bytes for this network interface.
  */
-#define ETH_NET_DEVICE_DT_DEFINE(node_id, init_fn, pm, data, config,	\
-				 prio, api, mtu)			\
-	Z_ETH_NET_DEVICE_INIT(node_id, Z_DEVICE_DT_DEV_ID(node_id),	\
-			      DEVICE_DT_NAME(node_id), init_fn, pm,	\
-			      data, config, prio, api, mtu)
+#define ETH_NET_DEVICE_DT_DEFINE(node_id, init_fn, pm, data, config, prio, api, mtu)               \
+	Z_ETH_NET_DEVICE_INIT(node_id, Z_DEVICE_DT_DEV_ID(node_id), DEVICE_DT_NAME(node_id),       \
+			      init_fn, pm, data, config, prio, api, mtu)
 
 /**
  * @brief Like ETH_NET_DEVICE_DT_DEFINE for an instance of a DT_DRV_COMPAT
@@ -1260,7 +1213,7 @@ static inline bool net_eth_is_vlan_interface(struct net_if *iface)
  *
  * @param ... other parameters as expected by ETH_NET_DEVICE_DT_DEFINE.
  */
-#define ETH_NET_DEVICE_DT_INST_DEFINE(inst, ...) \
+#define ETH_NET_DEVICE_DT_INST_DEFINE(inst, ...)                                                   \
 	ETH_NET_DEVICE_DT_DEFINE(DT_DRV_INST(inst), __VA_ARGS__)
 
 /**
@@ -1270,7 +1223,7 @@ static inline bool net_eth_is_vlan_interface(struct net_if *iface)
  * @param ptype Ethernet protocol type.
  * @param handler Handler function for this protocol type.
  */
-#define ETH_NET_L3_REGISTER(name, ptype, handler) \
+#define ETH_NET_L3_REGISTER(name, ptype, handler)                                                  \
 	NET_L3_REGISTER(&NET_L2_GET_NAME(ETHERNET), name, ptype, handler)
 
 /**
@@ -1406,8 +1359,7 @@ static inline void net_eth_set_ptp_port(struct net_if *iface, int port)
  */
 static inline bool net_eth_type_is_wifi(struct net_if *iface)
 {
-	const struct ethernet_context *ctx = (struct ethernet_context *)
-		net_if_l2_data(iface);
+	const struct ethernet_context *ctx = (struct ethernet_context *)net_if_l2_data(iface);
 
 	return ctx->eth_if_type == L2_ETH_IF_TYPE_WIFI;
 }
