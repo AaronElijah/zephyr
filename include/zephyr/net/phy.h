@@ -27,6 +27,11 @@
 #include <zephyr/sys/util_macro.h>
 #include <errno.h>
 
+/* PHY drivers almost invariably depend on MDIO and will use IEEE 802.3, Section 2 MII compatible
+ * PHY transceiver generic registers */
+#include <zephyr/net/mdio.h>
+#include <zephyr/net/mii.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -481,6 +486,57 @@ static inline int phy_get_plca_sts(const struct device *dev, bool *plca_status)
 	}
 
 	return DEVICE_API_GET(ethphy, dev)->get_plca_sts(dev, plca_status);
+}
+
+// TODO: continue with this phy read over clause 22
+static int phy_read_c45_over_c22(const struct device *dev, uint8_t devad, uint16_t regad,
+				 uint16_t *data)
+{
+	int ret;
+	if (dev == NULL) {
+		return -ENOSYS;
+	}
+
+	const struct ethphy_driver_api *api = DEVICE_API_GET(ethphy, dev);
+
+	uint32_t tmp_val = MII_MMD_ACR_OP_MODE_REGISTERS | (MII_MMD_ACR_DEVADR_MASK & devnum);
+	ret = api->write(phy_dev, MII_MMD_ACR, tmp_val);
+	if (ret < 0) {
+		return ret;
+	}
+
+	ret = api->write(phy_dev, MII_MMD_AADR, (uint32_t)regnum);
+	if (ret < 0) {
+		return ret;
+	}
+
+	tmp_val = MII_MMD_ACR_OP_MODE_DATA_NOINC | (MII_MMD_ACR_DEVADR_MASK & devnum);
+	ret = api->write(phy_dev, MII_MMD_ACR, tmp_val);
+	if (ret < 0) {
+		return ret;
+	}
+
+	uint32_t val32 = 0;
+	ret = api->read(phy_dev, MII_MMD_AADR, &val32);
+	if (ret == 0) {
+		*value = (uint16_t)val32;
+	}
+	return ret;
+}
+
+static int phy_configure_eee(const struct device *dev, bool is_eee_enabled)
+{
+	int ret;
+	uint16_t val;
+	const struct ethphy_driver_api *api = DEVICE_API_GET(ethphy, dev);
+	if (api->read_c45 == NULL && api->read == NULL) {
+		return -ENOSYS;
+	}
+
+	if (api->read_c45 != NULL && api->write_c45) {
+		ret = api->read_c45(dev, MDIO_MMD_AN, MDIO_AN_EEE_ADV, &val);
+	} else if (api->read != NULL && api->write != NULL) {
+	}
 }
 
 #ifdef __cplusplus

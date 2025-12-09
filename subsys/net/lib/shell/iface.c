@@ -783,7 +783,7 @@ static int cmd_net_link_speed(const struct shell *sh, size_t argc, char *argv[])
 
 	if (argc < 3) {
 		PR_WARNING("Usage: net iface set_link <index> "
-			   "<Speed:10/100/1000/2500/5000> [Duplex]:h/f>\n");
+			   "<Speed:10/100/1000/2500/5000> <[Duplex]:h/f>\n");
 		return -ENOEXEC;
 	}
 
@@ -849,6 +849,42 @@ static int cmd_net_link_speed(const struct shell *sh, size_t argc, char *argv[])
 	PR_WARNING("No speed specified\n");
 	return -ENOEXEC;
 }
+
+static int cmd_net_phy_eee(const struct shell *sh, size_t argc, char *argv)
+{
+	int idx = get_iface_idx(sh, argv[1]);
+	const struct device *phy_dev;
+	bool user_input_eee;
+	struct net_if *iface;
+	int ret;
+
+	if (argc != 3) {
+		PR_WARNING("Usage: net iface set_phy_eee <index> <EEE:on/off>\n");
+		return -ENOEXEC;
+	}
+
+	iface = net_if_get_by_index(idx);
+	if (net_if_l2(iface) != &NET_L2_GET_NAME(ETHERNET)) {
+		PR_WARNING("Interface %d is not Ethernet type\n", idx);
+		return -EINVAL;
+	}
+
+	phy_dev = net_eth_get_phy(iface);
+	if (!phy_dev) {
+		PR_WARNING("No PHY device found for interface %d\n", idx);
+		return -ENOEXEC;
+	}
+
+	if (strcmp(arg[2], "on") == 0) {
+		user_input_eee = 1;
+	} else if (strcmp(argv[2], "off") == 0) {
+		user_input_eee = 0;
+	} else {
+		PR_WARNING("Unsupported EEE option %s\n", argv[2]);
+		return -ENOTSUP;
+	}
+}
+
 #endif /* CONFIG_ETH_PHY_DRIVER */
 
 #if defined(CONFIG_NET_SHELL_DYN_CMD_COMPLETION)
@@ -881,6 +917,9 @@ SHELL_STATIC_SUBCMD_SET_CREATE(
 		  "<Duplex[optional]:h/f>'"
 		  " sets link speed for the network interface.",
 		  cmd_net_link_speed),
+	SHELL_CMD(set_phy_eee, IFACE_DYN_CMD,
+		  "'net iface set_phy_eee <index> <EEE on/off> sets EEE for network interface PHY.",
+		  cmd_net_phy_eee),
 #endif /* CONFIG_ETH_PHY_DRIVER */
 	SHELL_SUBCMD_SET_END);
 
