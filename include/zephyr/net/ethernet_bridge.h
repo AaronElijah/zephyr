@@ -16,6 +16,7 @@
 #ifndef ZEPHYR_INCLUDE_NET_ETHERNET_BRIDGE_H_
 #define ZEPHYR_INCLUDE_NET_ETHERNET_BRIDGE_H_
 
+#include <zephyr/kernel.h>
 #include <zephyr/sys/slist.h>
 #include <zephyr/sys/iterable_sections.h>
 
@@ -40,6 +41,12 @@ extern "C" {
 #define NET_ETHERNET_BRIDGE_ETH_INTERFACE_COUNT 1
 #endif
 
+#if defined(CONFIG_NET_VLAN_COUNT)
+#define NET_ETHERNET_BRIDGE_VLAN_COUNT CONFIG_NET_VLAN_COUNT
+#else
+#define NET_ETHERNET_BRIDGE_VLAN_COUNT 5 * NET_ETHERNET_BRIDGE_ETH_INTERFACE_COUNT
+#endif
+
 struct eth_bridge_iface_context {
 	/* Lock to protect access to interface array below */
 	struct k_mutex lock;
@@ -57,13 +64,22 @@ struct eth_bridge_iface_context {
 	int id;
 
 	/* Is the bridge interface initialized */
-	bool is_init : 1;
+	bool is_init: 1;
 
 	/* Has user configured the bridge */
-	bool is_setup : 1;
+	bool is_setup: 1;
 
 	/* Is the interface enabled or not */
-	bool status : 1;
+	bool status: 1;
+
+	/* Add our VLAN filtering information */
+	bool vlan_filtering: 1;
+	// TODO: change to a linked list so we can set any number
+	// If we wanted to keep everything in stack, we could use a static array
+	// TODO: add a flag for whether this VLAN points to a bridge entry (i.e. applies to the
+	// whole bridge) or bridge port entry (single port on bridge).
+	// May mean creating a new struct
+	struct ethernet_vlan *vlan_info[NET_ETHERNET_BRIDGE_VLAN_COUNT];
 };
 
 /** @endcond */
@@ -135,6 +151,10 @@ typedef void (*eth_bridge_cb_t)(struct eth_bridge_iface_context *br, void *user_
  * @param user_data User supplied data
  */
 void net_eth_bridge_foreach(eth_bridge_cb_t cb, void *user_data);
+
+int eth_bridge_vlan_add(struct net_if *br, struct net_if *br_p_iface, struct ethernet_vlan *vlan);
+int eth_bridge_vlan_remove(struct net_if *br, struct net_if *br_p_iface,
+			   struct ethernet_vlan *vlan);
 
 /**
  * @}

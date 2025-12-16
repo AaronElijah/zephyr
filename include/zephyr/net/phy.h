@@ -488,29 +488,42 @@ static inline int phy_get_plca_sts(const struct device *dev, bool *plca_status)
 	return DEVICE_API_GET(ethphy, dev)->get_plca_sts(dev, plca_status);
 }
 
-// TODO: continue with this phy read over clause 22
-static int phy_read_c45_over_c22(const struct device *dev, uint8_t devad, uint16_t regad,
+/**
+ * @brief      Read PHY C45 register over a C22 register.
+ *
+ * This function reads a PHY C45 register by setting the appropriate
+ * bits in the C22 register to select the C45 register and then
+ * reading the data from the C45 register.
+ *
+ * @param phy_dev The PHY device to access.
+ * @param devad The device address of the PHY to access.
+ * @param regad The register address to read from.
+ * @param data Pointer to receive the read data.
+ *
+ * @return 0 if successful, -EIO otherwise.
+ */
+static int phy_read_c45_over_c22(const struct device *phy_dev, uint8_t devad, uint16_t regad,
 				 uint16_t *data)
 {
 	int ret;
-	if (dev == NULL) {
+	if (phy_dev == NULL) {
 		return -ENOSYS;
 	}
 
-	const struct ethphy_driver_api *api = DEVICE_API_GET(ethphy, dev);
+	const struct ethphy_driver_api *api = DEVICE_API_GET(ethphy, phy_dev);
 
-	uint32_t tmp_val = MII_MMD_ACR_OP_MODE_REGISTERS | (MII_MMD_ACR_DEVADR_MASK & devnum);
+	uint32_t tmp_val = MII_MMD_ACR_OP_MODE_REGISTERS | (MII_MMD_ACR_DEVADR_MASK & devad);
 	ret = api->write(phy_dev, MII_MMD_ACR, tmp_val);
 	if (ret < 0) {
 		return ret;
 	}
 
-	ret = api->write(phy_dev, MII_MMD_AADR, (uint32_t)regnum);
+	ret = api->write(phy_dev, MII_MMD_AADR, (uint32_t)regad);
 	if (ret < 0) {
 		return ret;
 	}
 
-	tmp_val = MII_MMD_ACR_OP_MODE_DATA_NOINC | (MII_MMD_ACR_DEVADR_MASK & devnum);
+	tmp_val = MII_MMD_ACR_OP_MODE_DATA_NOINC | (MII_MMD_ACR_DEVADR_MASK & devad);
 	ret = api->write(phy_dev, MII_MMD_ACR, tmp_val);
 	if (ret < 0) {
 		return ret;
@@ -519,24 +532,94 @@ static int phy_read_c45_over_c22(const struct device *dev, uint8_t devad, uint16
 	uint32_t val32 = 0;
 	ret = api->read(phy_dev, MII_MMD_AADR, &val32);
 	if (ret == 0) {
-		*value = (uint16_t)val32;
+		*data = (uint16_t)val32;
 	}
 	return ret;
 }
 
-static int phy_configure_eee(const struct device *dev, bool is_eee_enabled)
+/**
+ * @brief Write a PHY C45 register over a C22 register.
+ *
+ * This function writes a PHY C45 register by setting the appropriate
+ * bits in the C22 register to select the C45 register and then
+ * writing the data to the C45 register.
+ *
+ * @param phy_dev The PHY device to access.
+ * @param devad The device address of the PHY to access.
+ * @param regad The register address to write to.
+ * @param data The data to write to the register.
+ *
+ * @return 0 if successful, -EIO otherwise.
+ */
+static int phy_write_c45_over_c22(const struct device *phy_dev, uint8_t devad, uint16_t regad,
+				  uint16_t data)
 {
 	int ret;
-	uint16_t val;
+	if (phy_dev == NULL) {
+		return -ENOSYS;
+	}
+
+	const struct ethphy_driver_api *api = DEVICE_API_GET(ethphy, phy_dev);
+
+	uint32_t tmp_val = MII_MMD_ACR_OP_MODE_REGISTERS | (MII_MMD_ACR_DEVADR_MASK & devad);
+	ret = api->write(phy_dev, MII_MMD_ACR, tmp_val);
+	if (ret < 0) {
+		return ret;
+	}
+
+	ret = api->write(phy_dev, MII_MMD_AADR, (uint32_t)regad);
+	if (ret < 0) {
+		return ret;
+	}
+
+	tmp_val = MII_MMD_ACR_OP_MODE_DATA_NOINC | (MII_MMD_ACR_DEVADR_MASK & devad);
+	ret = api->write(phy_dev, MII_MMD_ACR, tmp_val);
+	if (ret < 0) {
+		return ret;
+	}
+
+	return api->write(phy_dev, MII_MMD_AADR, (uint32_t)data);
+}
+
+/**
+ * @brief Configure EEE (Energy Efficient Ethernet) on a PHY.
+ *
+ * This function configures EEE on a PHY by setting the appropriate bits in
+ * the AN_EEE_ADV register.
+ *
+ * @param dev The PHY device to configure.
+ * @param is_eee_enabled Whether EEE should be enabled.
+ *
+ * @retval 0 If successful.
+ * @retval -EIO If communication with PHY failed.
+ */
+static inline int phy_configure_eee(const struct device *dev, bool is_eee_enabled)
+{
+	int ret = 0;
+	uint16_t eee_adv;
 	const struct ethphy_driver_api *api = DEVICE_API_GET(ethphy, dev);
 	if (api->read_c45 == NULL && api->read == NULL) {
 		return -ENOSYS;
 	}
 
 	if (api->read_c45 != NULL && api->write_c45) {
-		ret = api->read_c45(dev, MDIO_MMD_AN, MDIO_AN_EEE_ADV, &val);
+		ret = api->read_c45(dev, MDIO_MMD_AN, MDIO_AN_EEE_ADV, &eee_adv);
 	} else if (api->read != NULL && api->write != NULL) {
+		ret = phy_read_c45_over_c22(dev, MDIO_MMD_AN, MDIO_AN_EEE_ADV, &eee_adv);
 	}
+
+	if (is_eee_enabled) {
+		eee_adv |= (MDIO_AN_EEE_ADV_100TX | MDIO_AN_EEE_ADV_1000T);
+	} else {
+		eee_adv &= ~(MDIO_AN_EEE_ADV_100TX | MDIO_AN_EEE_ADV_1000T);
+	}
+
+	if (api->read_c45 != NULL && api->write_c45) {
+		ret = api->write_c45(dev, MDIO_MMD_AN, MDIO_AN_EEE_ADV, eee_adv);
+	} else if (api->read != NULL && api->write != NULL) {
+		ret = phy_write_c45_over_c22(dev, MDIO_MMD_AN, MDIO_AN_EEE_ADV, eee_adv);
+	}
+	return ret;
 }
 
 #ifdef __cplusplus

@@ -850,13 +850,14 @@ static int cmd_net_link_speed(const struct shell *sh, size_t argc, char *argv[])
 	return -ENOEXEC;
 }
 
-static int cmd_net_phy_eee(const struct shell *sh, size_t argc, char *argv)
+// TODO: test this on the DroneNet. Then we work on bridging all the ports together. Then we add
+// VLANs on that port
+static int cmd_net_phy_eee(const struct shell *sh, size_t argc, char *argv[])
 {
 	int idx = get_iface_idx(sh, argv[1]);
 	const struct device *phy_dev;
 	bool user_input_eee;
 	struct net_if *iface;
-	int ret;
 
 	if (argc != 3) {
 		PR_WARNING("Usage: net iface set_phy_eee <index> <EEE:on/off>\n");
@@ -875,14 +876,16 @@ static int cmd_net_phy_eee(const struct shell *sh, size_t argc, char *argv)
 		return -ENOEXEC;
 	}
 
-	if (strcmp(arg[2], "on") == 0) {
-		user_input_eee = 1;
+	if (strcmp(argv[2], "on") == 0) {
+		user_input_eee = true;
 	} else if (strcmp(argv[2], "off") == 0) {
-		user_input_eee = 0;
+		user_input_eee = false;
 	} else {
 		PR_WARNING("Unsupported EEE option %s\n", argv[2]);
 		return -ENOTSUP;
 	}
+
+	return phy_configure_eee(phy_dev, user_input_eee);
 }
 
 #endif /* CONFIG_ETH_PHY_DRIVER */

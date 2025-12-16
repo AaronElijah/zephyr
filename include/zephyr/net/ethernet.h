@@ -28,8 +28,6 @@
 
 #if defined(CONFIG_NET_DSA_DEPRECATED)
 #include <zephyr/net/dsa.h>
-#else
-#include <zephyr/net/dsa_core.h>
 #endif
 
 #if defined(CONFIG_NET_ETHERNET_BRIDGE)
@@ -131,6 +129,12 @@ struct net_eth_addr {
 
 #define _NET_ETH_MAX_FRAME_SIZE (NET_ETH_MTU + _NET_ETH_MAX_HDR_SIZE)
 
+#if defined(CONFIG_DSA_TAG_SIZE)
+#define DSA_TAG_SIZE CONFIG_DSA_TAG_SIZE
+#else
+#define DSA_TAG_SIZE 0
+#endif
+
 #define NET_ETH_MAX_FRAME_SIZE (_NET_ETH_MAX_FRAME_SIZE + DSA_TAG_SIZE)
 #define NET_ETH_MAX_HDR_SIZE   (_NET_ETH_MAX_HDR_SIZE + DSA_TAG_SIZE)
 
@@ -205,6 +209,16 @@ enum ethernet_hw_caps {
 };
 
 /** @cond INTERNAL_HIDDEN */
+
+#if !defined(CONFIG_NET_DSA_DEPRECATED)
+enum dsa_port_type {
+	NON_DSA_PORT,
+	DSA_CONDUIT_PORT,
+	DSA_USER_PORT,
+	DSA_CPU_PORT,
+	DSA_PORT,
+};
+#endif
 
 enum ethernet_config_type {
 	ETHERNET_CONFIG_TYPE_MAC_ADDRESS,
@@ -551,9 +565,10 @@ struct ethernet_api {
 	 * if it is false then the tag was removed. The driver can utilize
 	 * this information if needed.
 	 */
+	// Removed struct net_if *iface argument to this because we can use
+	// `net_if_lookup_by_dev(dev)` instead. Removes duplicating the argument.
 #if defined(CONFIG_NET_VLAN)
-	int (*vlan_setup)(const struct device *dev, struct net_if *iface, uint16_t tag,
-			  bool enable);
+	int (*vlan_setup)(const struct device *dev, struct ethernet_vlan *vlan, bool enable);
 #endif /* CONFIG_NET_VLAN */
 
 	/** Return ptp_clock device that is tied to this ethernet device */
@@ -580,20 +595,6 @@ struct net_eth_hdr {
 	struct net_eth_addr src;
 	uint16_t type;
 } __packed;
-
-struct ethernet_vlan {
-	/** Network interface that has VLAN enabled */
-	struct net_if *iface;
-
-	/** VLAN tag */
-	uint16_t tag;
-};
-
-#if defined(CONFIG_NET_VLAN_COUNT)
-#define NET_VLAN_MAX_COUNT CONFIG_NET_VLAN_COUNT
-#else
-#define NET_VLAN_MAX_COUNT 0
-#endif
 
 /** @endcond */
 
@@ -639,6 +640,7 @@ struct ethernet_context {
 
 #if defined(CONFIG_NET_ETHERNET_BRIDGE)
 	struct net_if *bridge;
+	struct ethernet_vlan *br_port_vlan;
 #endif
 
 	/** Carrier ON/OFF handler worker. This is used to create

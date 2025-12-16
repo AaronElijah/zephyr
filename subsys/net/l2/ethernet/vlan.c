@@ -373,6 +373,7 @@ int net_eth_vlan_enable(struct net_if *iface, uint16_t tag)
 	struct ethernet_context *ctx = net_if_l2_data(iface);
 	const struct ethernet_api *eth = net_if_get_device(iface)->api;
 	struct vlan_context *vlan;
+	struct ethernet_vlan *vlan_info = {0};
 	int ret;
 
 	if (!eth) {
@@ -421,6 +422,10 @@ int net_eth_vlan_enable(struct net_if *iface, uint16_t tag)
 		vlan = vlan_ctx[i];
 		vlan->tag = tag;
 
+		vlan_info->tag = tag;
+		vlan_info->pvid = false;
+		vlan_info->untagged = false;
+
 		if (!enable_vlan_iface(vlan, iface)) {
 			continue;
 		}
@@ -435,7 +440,7 @@ int net_eth_vlan_enable(struct net_if *iface, uint16_t tag)
 		setup_link_address(vlan);
 
 		if (eth->vlan_setup) {
-			eth->vlan_setup(net_if_get_device(iface), iface, vlan->tag, true);
+			eth->vlan_setup(net_if_get_device(iface), vlan_info, true);
 		}
 
 		ethernet_mgmt_raise_vlan_enabled_event(vlan->iface, vlan->tag);
@@ -453,6 +458,7 @@ int net_eth_vlan_disable(struct net_if *iface, uint16_t tag)
 {
 	const struct ethernet_api *eth;
 	struct vlan_context *vlan;
+	struct ethernet_vlan *vlan_info = {0};
 
 	if (net_if_l2(iface) != &NET_L2_GET_NAME(ETHERNET) &&
 	    net_if_l2(iface) != &NET_L2_GET_NAME(VIRTUAL)) {
@@ -470,6 +476,11 @@ int net_eth_vlan_disable(struct net_if *iface, uint16_t tag)
 
 	eth = net_if_get_device(vlan->attached_to)->api;
 
+	vlan_info->tag = tag;
+	vlan_info->pvid = false;
+	vlan_info->untagged = false;
+	vlan_info->iface = vlan->iface;
+
 	k_mutex_lock(&lock, K_FOREVER);
 
 	NET_DBG("Removing vlan tag %d from VLAN iface %d (%p) attached to %d (%p)", vlan->tag,
@@ -479,8 +490,7 @@ int net_eth_vlan_disable(struct net_if *iface, uint16_t tag)
 	vlan->tag = NET_VLAN_TAG_UNSPEC;
 
 	if (eth->vlan_setup) {
-		eth->vlan_setup(net_if_get_device(vlan->attached_to), vlan->attached_to, tag,
-				false);
+		eth->vlan_setup(net_if_get_device(vlan->attached_to), vlan_info, false);
 	}
 
 	ethernet_mgmt_raise_vlan_disabled_event(vlan->iface, tag);

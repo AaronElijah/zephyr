@@ -29,7 +29,7 @@ LOG_MODULE_REGISTER(net_eth_bridge, CONFIG_NET_ETHERNET_BRIDGE_LOG_LEVEL);
 #endif
 
 #define MAX_BRIDGE_NAME_LEN MIN(sizeof("bridge##"), CONFIG_NET_INTERFACE_NAME_LEN)
-#define MAX_VIRT_NAME_LEN MIN(sizeof("<no config>"), CONFIG_NET_L2_VIRTUAL_MAX_NAME_LEN)
+#define MAX_VIRT_NAME_LEN   MIN(sizeof("<no config>"), CONFIG_NET_L2_VIRTUAL_MAX_NAME_LEN)
 
 static void lock_bridge(struct eth_bridge_iface_context *ctx)
 {
@@ -141,15 +141,14 @@ int eth_bridge_iface_add(struct net_if *br, struct net_if *iface)
 		 * bridging using native-sim.
 		 */
 		if (!IS_ENABLED(CONFIG_ETH_NATIVE_TAP)) {
-			NET_DBG("iface %d promiscuous mode failed: %d",
-				net_if_get_by_iface(iface), ret);
+			NET_DBG("iface %d promiscuous mode failed: %d", net_if_get_by_iface(iface),
+				ret);
 			eth_bridge_iface_remove(br, iface);
 			return ret;
 		}
 	}
 
-	NET_DBG("iface %d added to bridge %d", net_if_get_by_iface(iface),
-		net_if_get_by_iface(br));
+	NET_DBG("iface %d added to bridge %d", net_if_get_by_iface(iface), net_if_get_by_iface(br));
 
 	if (count > 1) {
 		ctx->is_setup = true;
@@ -217,14 +216,135 @@ int eth_bridge_iface_remove(struct net_if *br, struct net_if *iface)
 	return 0;
 }
 
+int eth_bridge_vlan_add(struct net_if *br, struct net_if *br_p_iface, struct ethernet_vlan *vlan)
+{
+	char br_name[MAX_BRIDGE_NAME_LEN] = {0}, br_p_name[MAX_BRIDGE_NAME_LEN] = {0};
+	const struct ethernet_api *eth_api;
+	struct ethernet_context *eth_ctx = net_if_l2_data(br_p_iface);
+	struct eth_bridge_iface_context *br_ctx = net_if_get_device(br)->data;
+	// check port is an ethernet port, is a member of the bridge interface and vlan is valid
+	if (net_if_l2(br_p_iface) != &NET_L2_GET_NAME(ETHERNET) ||
+	    net_if_l2(br) != &NET_L2_GET_NAME(VIRTUAL) ||
+	    !(net_virtual_get_iface_capabilities(br) & VIRTUAL_INTERFACE_BRIDGE) ||
+	    !eth_ctx->bridge || eth_ctx->bridge != br) {
+		return -EINVAL;
+	}
+
+	if (IS_ARRAY_ELEMENT(br_ctx->eth_iface, br_p_iface) || vlan->tag < 1 ||
+	    vlan->tag > NET_VLAN_TAG_UNSPEC - 1) {
+		return -EINVAL;
+	}
+
+	eth_api = net_if_get_device(br_p_iface)->api;
+
+	if (!eth_api->vlan_setup) {
+		return -ENOTSUP;
+	}
+
+	// get the name of the bridge and the port
+	net_if_get_name(br, br_name, MAX_BRIDGE_NAME_LEN);
+	net_if_get_name(br_p_iface, br_p_name, MAX_BRIDGE_NAME_LEN);
+
+	// check if the tag already exists on the bridge
+	int info_index = -1;
+	ARRAY_FOR_EACH(br_ctx->vlan_info, i) {
+		if (br_ctx->vlan_info[i]->iface == NULL) {
+			info_index = i;
+			NET_DBG("No existing vlan entry found for tag %d to iface %s on bridge %s",
+				vlan->tag, br_p_name, br_name);
+			break;
+		}
+
+		if (br_ctx->vlan_info[i]->iface == br_p_iface &&
+		    br_ctx->vlan_info[i]->tag == vlan->tag) {
+			NET_DBG("Found existing vlan entry found for tag %d to iface %s on "
+				"bridge %s",
+				vlan->tag, br_p_name, br_name);
+			info_index = i;
+			break;
+		}
+	}
+
+	if (info_index == -1) {
+		NET_ERR("Too many existing vlan entrys on bridge %s", br_name);
+		return -ENOSPC;
+	}
+
+	lock_bridge(br_ctx);
+
+	NET_DBG("Adding vlan tag %d to iface %s on bridge %s", vlan->tag, br_p_name, br_name);
+
+	if (eth_api->vlan_setup(net_if_get_device(br_p_iface), vlan, true) != 0) {
+		unlock_bridge(br_ctx);
+		return -EIO;
+	}
+	/* Edit/add vlan setting to bridge */
+	if (br_ctx->vlan_info[info_index]->iface == NULL) {
+		br_ctx->vlan_info[info_index]->iface = br_p_iface;
+	}
+	br_ctx->vlan_info[info_index]->tag = vlan->tag;
+	br_ctx->vlan_info[info_index]->pvid = vlan->pvid;
+	br_ctx->vlan_info[info_index]->untagged = vlan->untagged;
+
+	NET_DBG("Added vlan tag %d to iface %s on bridge %s", vlan->tag, br_p_name, br_name);
+
+	unlock_bridge(br_ctx);
+
+	return 0;
+}
+
+int eth_bridge_vlan_remove(struct net_if *br, struct net_if *br_p_iface, struct ethernet_vlan *vlan)
+{
+	const struct ethernet_api *eth_api;
+	char br_name[MAX_BRIDGE_NAME_LEN] = {0}, br_p_name[MAX_BRIDGE_NAME_LEN] = {0};
+	struct ethernet_context *eth_ctx = net_if_get_device(br_p_iface)->data;
+	struct eth_bridge_iface_context *br_ctx = net_if_get_device(br)->data;
+	// check port is an ethernet port, is a member of the bridge interface and vlan is valid
+	if (net_if_l2(br_p_iface) != &NET_L2_GET_NAME(ETHERNET) ||
+	    net_if_l2(br) != &NET_L2_GET_NAME(VIRTUAL) ||
+	    !(net_virtual_get_iface_capabilities(br) & VIRTUAL_INTERFACE_BRIDGE) ||
+	    !eth_ctx->bridge || eth_ctx->bridge != br ||
+	    IS_ARRAY_ELEMENT(br_ctx->eth_iface, br_p_iface) || vlan->tag < 1 ||
+	    vlan->tag > NET_VLAN_TAG_UNSPEC - 1) {
+		return -EINVAL;
+	}
+
+	eth_api = net_if_get_device(br_p_iface)->api;
+
+	if (!eth_api->vlan_setup) {
+		return -ENOTSUP;
+	}
+
+	// get the name of the bridge and the port
+	net_if_get_name(br, br_name, MAX_BRIDGE_NAME_LEN);
+	net_if_get_name(br_p_iface, br_p_name, MAX_BRIDGE_NAME_LEN);
+
+	lock_bridge(br_ctx);
+
+	NET_DBG("Removing vlan tag %d to iface %s on bridge %s", vlan->tag, br_p_name, br_name);
+
+	if (eth_api->vlan_setup(net_if_get_device(br_p_iface), vlan, false) != 0) {
+		unlock_bridge(br_ctx);
+		return -EIO;
+	}
+
+	ARRAY_FOR_EACH(br_ctx->vlan_info, i) {
+		if (br_ctx->vlan_info[i]->iface == br_p_iface &&
+		    br_ctx->vlan_info[i]->tag == vlan->tag) {
+			memset(br_ctx->vlan_info[i], 0, sizeof(struct ethernet_vlan));
+			break;
+		}
+	}
+
+	unlock_bridge(br_ctx);
+
+	return 0;
+}
+
 static inline bool is_link_local_addr(struct net_eth_addr *addr)
 {
-	if (addr->addr[0] == 0x01 &&
-	    addr->addr[1] == 0x80 &&
-	    addr->addr[2] == 0xc2 &&
-	    addr->addr[3] == 0x00 &&
-	    addr->addr[4] == 0x00 &&
-	    (addr->addr[5] & 0x0f) == 0x00) {
+	if (addr->addr[0] == 0x01 && addr->addr[1] == 0x80 && addr->addr[2] == 0xc2 &&
+	    addr->addr[3] == 0x00 && addr->addr[4] == 0x00 && (addr->addr[5] & 0x0f) == 0x00) {
 		return true;
 	}
 
@@ -271,8 +391,7 @@ static void bridge_iface_init(struct net_if *iface)
 	vctx->lladdr.len = sizeof(vctx->lladdr.addr);
 	vctx->lladdr.type = NET_LINK_UNKNOWN;
 
-	net_if_set_link_addr(iface, vctx->lladdr.addr,
-			     vctx->lladdr.len, vctx->lladdr.type);
+	net_if_set_link_addr(iface, vctx->lladdr.addr, vctx->lladdr.len, vctx->lladdr.type);
 
 	ctx->is_init = true;
 	ctx->is_setup = false;
@@ -290,8 +409,7 @@ static int bridge_iface_start(const struct device *dev)
 	struct eth_bridge_iface_context *ctx = dev->data;
 
 	if (!ctx->is_setup) {
-		NET_DBG("Bridge interface %d not configured yet.",
-			net_if_get_by_iface(ctx->iface));
+		NET_DBG("Bridge interface %d not configured yet.", net_if_get_by_iface(ctx->iface));
 		return -ENOENT;
 	}
 
@@ -333,8 +451,7 @@ static int bridge_iface_stop(const struct device *dev)
 	return 0;
 }
 
-static enum net_verdict bridge_iface_process(struct net_if *iface,
-					     struct net_pkt *pkt,
+static enum net_verdict bridge_iface_process(struct net_if *iface, struct net_pkt *pkt,
 					     bool is_send)
 {
 	struct eth_bridge_iface_context *ctx = net_if_get_device(iface)->data;
@@ -386,10 +503,9 @@ static enum net_verdict bridge_iface_process(struct net_if *iface,
 			net_pkt_set_iface(send_pkt, ctx->eth_iface[i]);
 			net_if_queue_tx(ctx->eth_iface[i], send_pkt);
 
-			NET_DBG("%s iface %d pkt %p (ref %d)",
-				is_send ? "Send" : "Recv",
-				net_if_get_by_iface(ctx->eth_iface[i]),
-				send_pkt, (int)atomic_get(&send_pkt->atomic_ref));
+			NET_DBG("%s iface %d pkt %p (ref %d)", is_send ? "Send" : "Recv",
+				net_if_get_by_iface(ctx->eth_iface[i]), send_pkt,
+				(int)atomic_get(&send_pkt->atomic_ref));
 
 			net_pkt_unref(send_pkt);
 		}
@@ -409,8 +525,7 @@ int bridge_iface_send(struct net_if *iface, struct net_pkt *pkt)
 	if (DEBUG_TX) {
 		char str[sizeof("TX iface xx")];
 
-		snprintk(str, sizeof(str), "TX iface %d",
-			 net_if_get_by_iface(net_pkt_iface(pkt)));
+		snprintk(str, sizeof(str), "TX iface %d", net_if_get_by_iface(net_pkt_iface(pkt)));
 
 		net_pkt_hexdump(pkt, str);
 	}
@@ -420,14 +535,12 @@ int bridge_iface_send(struct net_if *iface, struct net_pkt *pkt)
 	return 0;
 }
 
-static enum net_verdict bridge_iface_recv(struct net_if *iface,
-					  struct net_pkt *pkt)
+static enum net_verdict bridge_iface_recv(struct net_if *iface, struct net_pkt *pkt)
 {
 	if (DEBUG_RX) {
 		char str[sizeof("RX iface xx")];
 
-		snprintk(str, sizeof(str), "RX iface %d",
-			 net_if_get_by_iface(net_pkt_iface(pkt)));
+		snprintk(str, sizeof(str), "RX iface %d", net_if_get_by_iface(net_pkt_iface(pkt)));
 
 		net_pkt_hexdump(pkt, str);
 	}
@@ -440,8 +553,7 @@ static enum net_verdict bridge_iface_recv(struct net_if *iface,
  * need to "attach" at least two Ethernet interfaces to the bridge interface.
  * So we return -ENOTSUP here so that the attachment fails if it is tried.
  */
-static int bridge_iface_attach(struct net_if *br,
-			       struct net_if *iface)
+static int bridge_iface_attach(struct net_if *br, struct net_if *iface)
 {
 	ARG_UNUSED(br);
 	ARG_UNUSED(iface);
@@ -460,19 +572,13 @@ static const struct virtual_interface_api bridge_iface_api = {
 	.attach = bridge_iface_attach,
 };
 
-#define ETH_DEFINE_BRIDGE(x, _)						\
-	static struct eth_bridge_iface_context bridge_context_data_##x = { \
-		.id = x,						\
-	};								\
-	NET_VIRTUAL_INTERFACE_INIT_INSTANCE(bridge_##x,			\
-					    "BRIDGE_" #x,		\
-					    x,				\
-					    NULL,			\
-					    NULL,			\
-					    &bridge_context_data_##x,	\
-					    NULL, /* config */		\
-					    CONFIG_KERNEL_INIT_PRIORITY_DEFAULT, \
-					    &bridge_iface_api,		\
-					    NET_ETH_MTU)
+#define ETH_DEFINE_BRIDGE(x, _)                                                                    \
+	static struct eth_bridge_iface_context bridge_context_data_##x = {                         \
+		.id = x,                                                                           \
+	};                                                                                         \
+	NET_VIRTUAL_INTERFACE_INIT_INSTANCE(bridge_##x, "BRIDGE_" #x, x, NULL, NULL,               \
+					    &bridge_context_data_##x, NULL, /* config */           \
+					    CONFIG_KERNEL_INIT_PRIORITY_DEFAULT,                   \
+					    &bridge_iface_api, NET_ETH_MTU)
 
 LISTIFY(CONFIG_NET_ETHERNET_BRIDGE_COUNT, ETH_DEFINE_BRIDGE, (;), _);

@@ -167,8 +167,7 @@ static int cmd_bridge_show(const struct shell *sh, size_t argc, char *argv[])
 		}
 	}
 
-	shell_fprintf(sh, SHELL_NORMAL, "Bridge %-9s%-9sInterfaces\n",
-		      "Status", "Config");
+	shell_fprintf(sh, SHELL_NORMAL, "Bridge %-9s%-9sInterfaces\n", "Status", "Config");
 
 	if (br != NULL) {
 		bridge_show(net_if_get_device(br)->data, (void *)sh);
@@ -179,22 +178,147 @@ static int cmd_bridge_show(const struct shell *sh, size_t argc, char *argv[])
 	return 0;
 }
 
-SHELL_STATIC_SUBCMD_SET_CREATE(bridge_commands,
-	SHELL_CMD_ARG(addif, NULL,
-		  "Add a network interface to a bridge.\n"
-		  "'bridge addif <bridge_index> <one or more interface index>'",
-		  cmd_bridge_addif, 3, 5),
-	SHELL_CMD_ARG(delif, NULL,
-		  "Delete a network interface from a bridge.\n"
-		  "'bridge delif <bridge_index> <one or more interface index>'",
-		  cmd_bridge_delif, 3, 5),
-	SHELL_CMD_ARG(show, NULL,
-		  "Show bridge information.\n"
-		  "'bridge show [<bridge_index>]'",
-		  cmd_bridge_show, 1, 1),
-	SHELL_SUBCMD_SET_END
-);
+static int cmd_bridge_vlan_add(const struct shell *sh, size_t argc, char *argv[])
+{
+	int if_idx;
+	struct ethernet_vlan vlan = {0};
+	struct ethernet_context *ctx = NULL;
+	struct net_if *br = NULL, *br_p_iface = NULL;
 
-SHELL_SUBCMD_ADD((net), bridge, &bridge_commands,
-		 "Ethernet bridge commands.",
-		 cmd_bridge_show, 1, 1);
+	// check interface is added to a bridge
+	if_idx = get_idx(sh, argv[1]);
+	if (if_idx < 0) {
+		shell_warn(sh, "Interface %d not valid\n", if_idx);
+		return -ENOENT;
+	}
+
+	br_p_iface = net_if_get_by_index(if_idx);
+	if (br_p_iface == NULL) {
+		shell_warn(sh, "Interface %d not found\n", if_idx);
+		return -ENOENT;
+	}
+
+	ctx = net_if_l2_data(br_p_iface);
+	if (ctx->bridge == NULL) {
+		shell_warn(sh, "Interface %d is not a member of a bridge\n", if_idx);
+		return -EINVAL;
+	}
+
+	br = ctx->bridge;
+
+	// check vlan is valid
+	uint16_t vlan_id = atoi(argv[2]);
+	if (vlan_id < 1 || vlan_id > NET_VLAN_TAG_UNSPEC - 1) {
+		shell_warn(sh, "VLAN ID must be between 1 and %d inclusive\n",
+			   NET_VLAN_TAG_UNSPEC - 1);
+		return -EINVAL;
+	}
+
+	// check flags for untagged or pvid
+	bool pvid = false;
+	bool untagged = false;
+	if (argc > 3) {
+		for (int i = 3; i < argc; i++) {
+			if (strcmp(argv[i], "untagged") == 0) {
+				untagged = true;
+			} else if (strcmp(argv[i], "pvid") == 0) {
+				pvid = true;
+			} else {
+				shell_warn(sh, "Flags supported: 'untagged', 'pvid'\n");
+				return -EINVAL;
+			}
+		}
+	}
+
+	// add vlan to bridge port
+	vlan.iface = br_p_iface;
+	vlan.tag = vlan_id;
+	vlan.pvid = pvid;
+	vlan.untagged = untagged;
+	if (eth_bridge_vlan_add(br, br_p_iface, &vlan) < 0) {
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static int cmd_bridge_vlan_del(const struct shell *sh, size_t argc, char *argv[])
+{
+	int if_idx;
+	struct ethernet_vlan vlan = {0};
+	struct ethernet_context *ctx = NULL;
+	struct net_if *br = NULL, *br_p_iface = NULL;
+
+	// check interface is added to a bridge
+	if_idx = get_idx(sh, argv[1]);
+	if (if_idx < 0) {
+		shell_warn(sh, "Interface %d not valid\n", if_idx);
+		return -ENOENT;
+	}
+
+	br_p_iface = net_if_get_by_index(if_idx);
+	if (br_p_iface == NULL) {
+		shell_warn(sh, "Interface %d not found\n", if_idx);
+		return -ENOENT;
+	}
+
+	ctx = net_if_l2_data(br_p_iface);
+	if (ctx->bridge == NULL) {
+		shell_warn(sh, "Interface %d is not a member of a bridge\n", if_idx);
+		return -EINVAL;
+	}
+
+	br = ctx->bridge;
+
+	// check vlan is valid
+	uint16_t vlan_id = atoi(argv[2]);
+	if (vlan_id < 1 || vlan_id > NET_VLAN_TAG_UNSPEC - 1) {
+		shell_warn(sh, "VLAN ID must be between 1 and %d inclusive\n",
+			   NET_VLAN_TAG_UNSPEC - 1);
+		return -EINVAL;
+	}
+
+	// remove vlan from bridge port
+	vlan.iface = br_p_iface;
+	vlan.tag = vlan_id;
+	if (eth_bridge_vlan_add(br, br_p_iface, &vlan) < 0) {
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+SHELL_STATIC_SUBCMD_SET_CREATE(
+	bridge_vlan_commands,
+	SHELL_CMD_ARG(add, NULL,
+		      "Add a VLAN to a bridge.\n"
+		      "'bridge vlan add <iface_index> <vlan_id> [<untagged|pvid>]'",
+		      cmd_bridge_vlan_add, 3, 2),
+	SHELL_CMD_ARG(del, NULL,
+		      "Delete a VLAN from a bridge.\n"
+		      "'bridge vlan del <iface_index> <vlan_id>'",
+		      cmd_bridge_vlan_del, 3, 0),
+	SHELL_SUBCMD_SET_END);
+
+SHELL_STATIC_SUBCMD_SET_CREATE(
+	bridge_commands,
+	SHELL_CMD_ARG(addif, NULL,
+		      "Add a network interface to a bridge.\n"
+		      "'bridge addif <bridge_index> <one or more interface index>'",
+		      cmd_bridge_addif, 3, 5),
+	SHELL_CMD_ARG(delif, NULL,
+		      "Delete a network interface from a bridge.\n"
+		      "'bridge delif <bridge_index> <one or more interface index>'",
+		      cmd_bridge_delif, 3, 5),
+	SHELL_CMD_ARG(show, NULL,
+		      "Show bridge information.\n"
+		      "'bridge show [<bridge_index>]'",
+		      cmd_bridge_show, 1, 1),
+	SHELL_CMD_ARG(vlan, &bridge_vlan_commands,
+		      "VLAN commands for a bridge.\n"
+		      "'bridge vlan <add|del> <iface_index> <vlan_id> [<other args>]'",
+		      NULL, 4, 2),
+	SHELL_SUBCMD_SET_END);
+
+SHELL_SUBCMD_ADD((net), bridge, &bridge_commands, "Ethernet bridge commands.", cmd_bridge_show, 1,
+		 1);

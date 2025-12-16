@@ -34,6 +34,26 @@ extern "C" {
 /** VLAN ID for forwarding to the native interface (priority tagging) */
 #define NET_VLAN_TAG_PRIORITY 0x0000
 
+struct ethernet_vlan {
+	/** Network interface that has VLAN enabled */
+	struct net_if *iface;
+
+	/** VLAN tag */
+	uint16_t tag;
+
+	/** Flag for if this the default VLAN */
+	bool pvid;
+
+	/** Flag for if this VLAN expects untagged traffic */
+	bool untagged;
+};
+
+#if defined(CONFIG_NET_VLAN_COUNT)
+#define NET_VLAN_MAX_COUNT CONFIG_NET_VLAN_COUNT
+#else
+#define NET_VLAN_MAX_COUNT 0
+#endif
+
 /**
  * @brief Get VLAN identifier from TCI.
  *
@@ -116,6 +136,5 @@ static inline uint16_t net_eth_vlan_set_pcp(uint16_t tci, uint8_t pcp)
 /**
  * @}
  */
-
 
 #endif /* ZEPHYR_INCLUDE_NET_ETHERNET_VLAN_H_ */
