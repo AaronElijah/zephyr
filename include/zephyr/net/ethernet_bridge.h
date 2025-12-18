@@ -19,6 +19,7 @@
 #include <zephyr/kernel.h>
 #include <zephyr/sys/slist.h>
 #include <zephyr/sys/iterable_sections.h>
+#include <zephyr/net/ethernet_vlan.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -42,7 +43,7 @@ extern "C" {
 #endif
 
 #if defined(CONFIG_NET_VLAN_COUNT)
-#define NET_ETHERNET_BRIDGE_VLAN_COUNT CONFIG_NET_VLAN_COUNT
+#define NET_ETHERNET_BRIDGE_VLAN_COUNT 5 * CONFIG_NET_VLAN_COUNT
 #else
 #define NET_ETHERNET_BRIDGE_VLAN_COUNT 5 * NET_ETHERNET_BRIDGE_ETH_INTERFACE_COUNT
 #endif
@@ -79,7 +80,7 @@ struct eth_bridge_iface_context {
 	// TODO: add a flag for whether this VLAN points to a bridge entry (i.e. applies to the
 	// whole bridge) or bridge port entry (single port on bridge).
 	// May mean creating a new struct
-	struct ethernet_vlan *vlan_info[NET_ETHERNET_BRIDGE_VLAN_COUNT];
+	struct ethernet_vlan vlan_info[NET_ETHERNET_BRIDGE_VLAN_COUNT];
 };
 
 /** @endcond */

@@ -248,15 +248,15 @@ int eth_bridge_vlan_add(struct net_if *br, struct net_if *br_p_iface, struct eth
 	// check if the tag already exists on the bridge
 	int info_index = -1;
 	ARRAY_FOR_EACH(br_ctx->vlan_info, i) {
-		if (br_ctx->vlan_info[i]->iface == NULL) {
+		struct ethernet_vlan *_info = &br_ctx->vlan_info[i];
+		if (_info->iface == NULL) {
 			info_index = i;
 			NET_DBG("No existing vlan entry found for tag %d to iface %s on bridge %s",
 				vlan->tag, br_p_name, br_name);
 			break;
 		}
 
-		if (br_ctx->vlan_info[i]->iface == br_p_iface &&
-		    br_ctx->vlan_info[i]->tag == vlan->tag) {
+		if (_info->iface == br_p_iface && _info->tag == vlan->tag) {
 			NET_DBG("Found existing vlan entry found for tag %d to iface %s on "
 				"bridge %s",
 				vlan->tag, br_p_name, br_name);
@@ -279,12 +279,13 @@ int eth_bridge_vlan_add(struct net_if *br, struct net_if *br_p_iface, struct eth
 		return -EIO;
 	}
 	/* Edit/add vlan setting to bridge */
-	if (br_ctx->vlan_info[info_index]->iface == NULL) {
-		br_ctx->vlan_info[info_index]->iface = br_p_iface;
+	struct ethernet_vlan *info = &br_ctx->vlan_info[info_index];
+	if (info->iface == NULL) {
+		info->iface = br_p_iface;
 	}
-	br_ctx->vlan_info[info_index]->tag = vlan->tag;
-	br_ctx->vlan_info[info_index]->pvid = vlan->pvid;
-	br_ctx->vlan_info[info_index]->untagged = vlan->untagged;
+	info->tag = vlan->tag;
+	info->pvid = vlan->pvid;
+	info->untagged = vlan->untagged;
 
 	NET_DBG("Added vlan tag %d to iface %s on bridge %s", vlan->tag, br_p_name, br_name);
 
@@ -297,7 +298,7 @@ int eth_bridge_vlan_remove(struct net_if *br, struct net_if *br_p_iface, struct 
 {
 	const struct ethernet_api *eth_api;
 	char br_name[MAX_BRIDGE_NAME_LEN] = {0}, br_p_name[MAX_BRIDGE_NAME_LEN] = {0};
-	struct ethernet_context *eth_ctx = net_if_get_device(br_p_iface)->data;
+	struct ethernet_context *eth_ctx = net_if_l2_data(br_p_iface);
 	struct eth_bridge_iface_context *br_ctx = net_if_get_device(br)->data;
 	// check port is an ethernet port, is a member of the bridge interface and vlan is valid
 	if (net_if_l2(br_p_iface) != &NET_L2_GET_NAME(ETHERNET) ||
@@ -329,9 +330,9 @@ int eth_bridge_vlan_remove(struct net_if *br, struct net_if *br_p_iface, struct 
 	}
 
 	ARRAY_FOR_EACH(br_ctx->vlan_info, i) {
-		if (br_ctx->vlan_info[i]->iface == br_p_iface &&
-		    br_ctx->vlan_info[i]->tag == vlan->tag) {
-			memset(br_ctx->vlan_info[i], 0, sizeof(struct ethernet_vlan));
+		struct ethernet_vlan *_info = &br_ctx->vlan_info[i];
+		if (_info->iface == br_p_iface && _info->tag == vlan->tag) {
+			memset(_info, 0, sizeof(struct ethernet_vlan));
 			break;
 		}
 	}
@@ -395,6 +396,7 @@ static void bridge_iface_init(struct net_if *iface)
 
 	ctx->is_init = true;
 	ctx->is_setup = false;
+	memset(ctx->vlan_info, 0, sizeof(ctx->vlan_info));
 }
 
 static enum virtual_interface_caps bridge_get_capabilities(struct net_if *iface)

@@ -34,6 +34,12 @@ LOG_MODULE_REGISTER(net_core, CONFIG_NET_CORE_LOG_LEVEL);
 #include <zephyr/net/ethernet.h>
 #include <zephyr/net/capture.h>
 
+#if defined(CONFIG_NET_DSA_DEPRECATED)
+#include <zephyr/net/dsa.h>
+#else
+#include <zephyr/net/dsa_core.h>
+#endif
+
 #if defined(CONFIG_NET_LLDP)
 #include <zephyr/net/lldp.h>
 #endif
@@ -64,8 +70,7 @@ LOG_MODULE_REGISTER(net_core, CONFIG_NET_CORE_LOG_LEVEL);
 #include "net_stats.h"
 
 #if defined(CONFIG_NET_NATIVE)
-static inline enum net_verdict process_data(struct net_pkt *pkt,
-					    bool is_loopback)
+static inline enum net_verdict process_data(struct net_pkt *pkt, bool is_loopback)
 {
 	int ret;
 	bool locally_routed = false;
@@ -98,8 +103,7 @@ static inline enum net_verdict process_data(struct net_pkt *pkt,
 		if (ret != NET_CONTINUE) {
 			if (ret == NET_DROP) {
 				NET_DBG("Packet %p discarded by L2", pkt);
-				net_stats_update_processing_error(
-							net_pkt_iface(pkt));
+				net_stats_update_processing_error(net_pkt_iface(pkt));
 			}
 
 			return ret;
@@ -187,10 +191,8 @@ static void net_post_init(void)
 
 static inline void copy_ll_addr(struct net_pkt *pkt)
 {
-	memcpy(net_pkt_lladdr_src(pkt), net_pkt_lladdr_if(pkt),
-	       sizeof(struct net_linkaddr));
-	memcpy(net_pkt_lladdr_dst(pkt), net_pkt_lladdr_if(pkt),
-	       sizeof(struct net_linkaddr));
+	memcpy(net_pkt_lladdr_src(pkt), net_pkt_lladdr_if(pkt), sizeof(struct net_linkaddr));
+	memcpy(net_pkt_lladdr_dst(pkt), net_pkt_lladdr_if(pkt), sizeof(struct net_linkaddr));
 }
 
 /* Check if the IPv{4|6} addresses are proper. As this can be expensive,
@@ -241,7 +243,7 @@ static inline int check_ip(struct net_pkt *pkt)
 		 * back to us (if it is not already forwarded).
 		 */
 		if ((net_ipv6_is_addr_loopback_raw(NET_IPV6_HDR(pkt)->dst) ||
-		    net_ipv6_is_my_addr_raw(NET_IPV6_HDR(pkt)->dst)) &&
+		     net_ipv6_is_my_addr_raw(NET_IPV6_HDR(pkt)->dst)) &&
 		    !net_pkt_forwarding(pkt)) {
 			struct in6_addr addr;
 
@@ -249,8 +251,7 @@ static inline int check_ip(struct net_pkt *pkt)
 			 * the packet is accepted.
 			 */
 			net_ipv6_addr_copy_raw((uint8_t *)&addr, NET_IPV6_HDR(pkt)->src);
-			net_ipv6_addr_copy_raw(NET_IPV6_HDR(pkt)->src,
-					       NET_IPV6_HDR(pkt)->dst);
+			net_ipv6_addr_copy_raw(NET_IPV6_HDR(pkt)->src, NET_IPV6_HDR(pkt)->dst);
 			net_ipv6_addr_copy_raw(NET_IPV6_HDR(pkt)->dst, (uint8_t *)&addr);
 
 			net_pkt_set_ll_proto_type(pkt, ETH_P_IPV6);
@@ -311,8 +312,8 @@ static inline int check_ip(struct net_pkt *pkt)
 		 * back to us.
 		 */
 		if (net_ipv4_is_addr_loopback_raw(NET_IPV4_HDR(pkt)->dst) ||
-		    (net_ipv4_is_addr_bcast_raw(net_pkt_iface(pkt),
-						NET_IPV4_HDR(pkt)->dst) == false &&
+		    (net_ipv4_is_addr_bcast_raw(net_pkt_iface(pkt), NET_IPV4_HDR(pkt)->dst) ==
+			     false &&
 		     net_ipv4_is_my_addr_raw(NET_IPV4_HDR(pkt)->dst))) {
 			struct in_addr addr;
 
@@ -320,8 +321,7 @@ static inline int check_ip(struct net_pkt *pkt)
 			 * the packet is accepted.
 			 */
 			net_ipv4_addr_copy_raw((uint8_t *)&addr, NET_IPV4_HDR(pkt)->src);
-			net_ipv4_addr_copy_raw(NET_IPV4_HDR(pkt)->src,
-					       NET_IPV4_HDR(pkt)->dst);
+			net_ipv4_addr_copy_raw(NET_IPV4_HDR(pkt)->src, NET_IPV4_HDR(pkt)->dst);
 			net_ipv4_addr_copy_raw(NET_IPV4_HDR(pkt)->dst, (uint8_t *)&addr);
 
 			net_pkt_set_ll_proto_type(pkt, ETH_P_IP);
@@ -523,8 +523,8 @@ static void net_queue_rx(struct net_if *iface, struct net_pkt *pkt)
 	NET_DBG("TC %d with prio %d pkt %p", tc, prio, pkt);
 #endif
 
-	if ((IS_ENABLED(CONFIG_NET_TC_RX_SKIP_FOR_HIGH_PRIO) &&
-	     prio >= NET_PRIORITY_CA) || NET_TC_RX_COUNT == 0) {
+	if ((IS_ENABLED(CONFIG_NET_TC_RX_SKIP_FOR_HIGH_PRIO) && prio >= NET_PRIORITY_CA) ||
+	    NET_TC_RX_COUNT == 0) {
 		net_process_rx_packet(pkt);
 	} else {
 		if (net_tc_submit_to_rx_queue(tc, pkt) != NET_OK) {
@@ -576,8 +576,8 @@ int net_recv_data(struct net_if *iface, struct net_pkt *pkt)
 	net_pkt_set_overwrite(pkt, true);
 	net_pkt_cursor_init(pkt);
 
-	NET_DBG("prio %d iface %p pkt %p len %zu", net_pkt_priority(pkt),
-		iface, pkt, net_pkt_get_len(pkt));
+	NET_DBG("prio %d iface %p pkt %p len %zu", net_pkt_priority(pkt), iface, pkt,
+		net_pkt_get_len(pkt));
 
 	if (IS_ENABLED(CONFIG_NET_ROUTING)) {
 		net_pkt_set_orig_iface(pkt, iface);
@@ -613,10 +613,8 @@ static inline void l3_init(void)
 
 	net_ipv4_autoconf_init();
 
-	if (IS_ENABLED(CONFIG_NET_UDP) ||
-	    IS_ENABLED(CONFIG_NET_TCP) ||
-	    IS_ENABLED(CONFIG_NET_SOCKETS_PACKET) ||
-	    IS_ENABLED(CONFIG_NET_SOCKETS_CAN)) {
+	if (IS_ENABLED(CONFIG_NET_UDP) || IS_ENABLED(CONFIG_NET_TCP) ||
+	    IS_ENABLED(CONFIG_NET_SOCKETS_PACKET) || IS_ENABLED(CONFIG_NET_SOCKETS_CAN)) {
 		net_conn_init();
 	}
 

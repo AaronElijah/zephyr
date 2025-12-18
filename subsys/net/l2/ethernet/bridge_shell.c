@@ -9,6 +9,7 @@
 #include <zephyr/net/net_if.h>
 #include <zephyr/net/ethernet.h>
 #include <zephyr/net/ethernet_bridge.h>
+#include <zephyr/net/virtual.h>
 #include <zephyr/sys/slist.h>
 
 static int get_idx(const struct shell *sh, char *index_str)
@@ -281,10 +282,70 @@ static int cmd_bridge_vlan_del(const struct shell *sh, size_t argc, char *argv[]
 	// remove vlan from bridge port
 	vlan.iface = br_p_iface;
 	vlan.tag = vlan_id;
-	if (eth_bridge_vlan_add(br, br_p_iface, &vlan) < 0) {
+	if (eth_bridge_vlan_remove(br, br_p_iface, &vlan) < 0) {
 		return -EINVAL;
 	}
 
+	return 0;
+}
+
+static int cmd_bridge_vlan_show(const struct shell *sh, size_t argc, char *argv[])
+{
+	int br_idx;
+	struct net_if *br = NULL;
+	// char br_name[MAX_BRIDGE_NAME_LEN] = {0};
+	struct eth_bridge_iface_context *br_ctx;
+
+	// check interface is a bridge
+	br_idx = get_idx(sh, argv[1]);
+	if (br_idx < 0) {
+		shell_warn(sh, "Interface %d not valid\n", br_idx);
+		return -ENOENT;
+	}
+
+	br = eth_bridge_get_by_index(br_idx);
+	if (br == NULL) {
+		shell_warn(sh, "Bridge %d not found\n", br_idx);
+		return -ENOENT;
+	}
+
+	if (net_if_l2(br) != &NET_L2_GET_NAME(VIRTUAL) ||
+	    !(net_virtual_get_iface_capabilities(br) & VIRTUAL_INTERFACE_BRIDGE)) {
+		shell_warn(sh, "Interface %d is not a bridge\n", br_idx);
+		return -EINVAL;
+	}
+
+	br_ctx = net_if_get_device(br)->data;
+	// net_if_get_name(br, br_name, MAX_BRIDGE_NAME_LEN);
+
+	// check first VLAN entry to confirm that vlans are configured
+	if (br_ctx->vlan_info[0].iface == NULL) {
+		shell_print(sh, "No VLANs configured on bridge %d\n", br_idx);
+		return 0;
+	}
+
+	shell_print(sh, "VLANs configured on bridge %d:\n", br_idx);
+	shell_print(sh, "port    vlan-id    pvid    untagged");
+	// loop through every bridged port iface, then loop every vlan entry to find matches
+	// obviously very inefficient but ok for small number of entries
+	// in future, we can add a linked list type structure on the bridge port iface data
+	// for vlan entries which apply to it
+	ARRAY_FOR_EACH(br_ctx->eth_iface, i) {
+		struct net_if *br_p_iface = br_ctx->eth_iface[i];
+		if (br_p_iface == NULL) {
+			continue;
+		}
+		shell_print(sh, "%d: ", net_if_get_by_iface(br_p_iface));
+
+		ARRAY_FOR_EACH(br_ctx->vlan_info, j) {
+			struct ethernet_vlan *_info = &br_ctx->vlan_info[j];
+			if (_info->iface == br_p_iface) {
+				shell_print(sh, "    %-9d    %-6s    %-8s", _info->tag,
+					    _info->pvid ? "pvid" : "",
+					    _info->untagged ? "untagged" : "");
+			}
+		}
+	}
 	return 0;
 }
 
@@ -298,6 +359,10 @@ SHELL_STATIC_SUBCMD_SET_CREATE(
 		      "Delete a VLAN from a bridge.\n"
 		      "'bridge vlan del <iface_index> <vlan_id>'",
 		      cmd_bridge_vlan_del, 3, 0),
+	SHELL_CMD_ARG(show, NULL,
+		      "Show VLANs added to bridge.\n"
+		      "'bridge vlan show <bridge_index>'",
+		      cmd_bridge_vlan_show, 2, 0),
 	SHELL_SUBCMD_SET_END);
 
 SHELL_STATIC_SUBCMD_SET_CREATE(

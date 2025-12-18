@@ -8,6 +8,7 @@
 LOG_MODULE_REGISTER(net_dsa_port, CONFIG_NET_DSA_LOG_LEVEL);
 
 #include <zephyr/net/ethernet.h>
+#include <zephyr/net/ethernet_vlan.h>
 #include <zephyr/net/phy.h>
 #include <zephyr/net/dsa_core.h>
 
@@ -123,8 +124,7 @@ static const struct device *dsa_port_get_phy(const struct device *dev)
 }
 
 #if CONFIG_NET_VLAN
-static int dsa_port_vlan_setup(const struct device *dev, struct net_if *iface, uint16_t tag,
-			       bool enable)
+static int dsa_port_vlan_setup(const struct device *dev, struct ethernet_vlan *vlan, bool enable)
 {
 	int ret;
 	struct dsa_switch_context *dsa_switch_ctx = dev->data;
@@ -138,8 +138,7 @@ static int dsa_port_vlan_setup(const struct device *dev, struct net_if *iface, u
 		return ret;
 	}
 
-	return dsa_switch_ctx->dapi->port_vlan_add(dev, tag, false,
-						   false); // untagged=false, pvid=false
+	return dsa_switch_ctx->dapi->port_vlan_add(dev, vlan->tag, vlan->untagged, vlan->pvid);
 }
 #endif
 
