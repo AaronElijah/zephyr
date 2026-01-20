@@ -138,7 +138,9 @@ static int dsa_port_vlan_setup(const struct device *dev, struct ethernet_vlan *v
 		return ret;
 	}
 
-	return dsa_switch_ctx->dapi->port_vlan_add(dev, vlan->tag, vlan->untagged, vlan->pvid);
+	return enable ? dsa_switch_ctx->dapi->port_vlan_add(dev, vlan->tag, vlan->untagged,
+							    vlan->pvid)
+		      : dsa_switch_ctx->dapi->port_vlan_del(dev, vlan->tag);
 }
 #endif
 

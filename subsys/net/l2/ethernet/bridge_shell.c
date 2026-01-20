@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <zephyr/shell/shell.h>
 #include <zephyr/net/net_if.h>
@@ -181,25 +182,31 @@ static int cmd_bridge_show(const struct shell *sh, size_t argc, char *argv[])
 
 static int cmd_bridge_vlan_add(const struct shell *sh, size_t argc, char *argv[])
 {
+	int ret;
 	int if_idx;
+	char iface_name[6];
 	struct ethernet_vlan vlan = {0};
 	struct ethernet_context *ctx = NULL;
-	struct net_if *br = NULL, *br_p_iface = NULL;
+	struct net_if *br = NULL, *p_iface = NULL;
 
-	// check interface is added to a bridge
-	if_idx = get_idx(sh, argv[1]);
+	// get iface
+	ret = snprintf(iface_name, sizeof(iface_name), "%s", argv[1]);
+	if (ret < 0 || ret >= sizeof(iface_name)) {
+		shell_warn(sh, "Interface name is incorrect\n");
+		return -EINVAL;
+	}
+	if_idx = net_if_get_by_name(iface_name);
 	if (if_idx < 0) {
-		shell_warn(sh, "Interface %d not valid\n", if_idx);
+		shell_warn(sh, "Interface %s not found\n", iface_name);
+		return -ENOENT;
+	}
+	p_iface = net_if_get_by_index(if_idx);
+	if (p_iface == NULL) {
+		shell_warn(sh, "Interface %s not found\n", iface_name);
 		return -ENOENT;
 	}
 
-	br_p_iface = net_if_get_by_index(if_idx);
-	if (br_p_iface == NULL) {
-		shell_warn(sh, "Interface %d not found\n", if_idx);
-		return -ENOENT;
-	}
-
-	ctx = net_if_l2_data(br_p_iface);
+	ctx = net_if_l2_data(p_iface);
 	if (ctx->bridge == NULL) {
 		shell_warn(sh, "Interface %d is not a member of a bridge\n", if_idx);
 		return -EINVAL;
@@ -232,11 +239,11 @@ static int cmd_bridge_vlan_add(const struct shell *sh, size_t argc, char *argv[]
 	}
 
 	// add vlan to bridge port
-	vlan.iface = br_p_iface;
+	vlan.iface = p_iface;
 	vlan.tag = vlan_id;
 	vlan.pvid = pvid;
 	vlan.untagged = untagged;
-	if (eth_bridge_vlan_add(br, br_p_iface, &vlan) < 0) {
+	if (eth_bridge_vlan_add(br, p_iface, &vlan) < 0) {
 		return -EINVAL;
 	}
 
@@ -245,25 +252,32 @@ static int cmd_bridge_vlan_add(const struct shell *sh, size_t argc, char *argv[]
 
 static int cmd_bridge_vlan_del(const struct shell *sh, size_t argc, char *argv[])
 {
+	int ret;
 	int if_idx;
+	char iface_name[6];
 	struct ethernet_vlan vlan = {0};
 	struct ethernet_context *ctx = NULL;
-	struct net_if *br = NULL, *br_p_iface = NULL;
+	struct net_if *br = NULL, *p_iface = NULL;
+
+	// get iface
+	ret = snprintf(iface_name, sizeof(iface_name), "%s", argv[1]);
+	if (ret < 0 || ret >= sizeof(iface_name)) {
+		shell_warn(sh, "Interface name is incorrect\n");
+		return -EINVAL;
+	}
+	if_idx = net_if_get_by_name(iface_name);
+	if (if_idx < 0) {
+		shell_warn(sh, "Interface %s not found\n", iface_name);
+		return -ENOENT;
+	}
+	p_iface = net_if_get_by_index(if_idx);
+	if (p_iface == NULL) {
+		shell_warn(sh, "Interface %s not found\n", iface_name);
+		return -ENOENT;
+	}
 
 	// check interface is added to a bridge
-	if_idx = get_idx(sh, argv[1]);
-	if (if_idx < 0) {
-		shell_warn(sh, "Interface %d not valid\n", if_idx);
-		return -ENOENT;
-	}
-
-	br_p_iface = net_if_get_by_index(if_idx);
-	if (br_p_iface == NULL) {
-		shell_warn(sh, "Interface %d not found\n", if_idx);
-		return -ENOENT;
-	}
-
-	ctx = net_if_l2_data(br_p_iface);
+	ctx = net_if_l2_data(p_iface);
 	if (ctx->bridge == NULL) {
 		shell_warn(sh, "Interface %d is not a member of a bridge\n", if_idx);
 		return -EINVAL;
@@ -280,9 +294,9 @@ static int cmd_bridge_vlan_del(const struct shell *sh, size_t argc, char *argv[]
 	}
 
 	// remove vlan from bridge port
-	vlan.iface = br_p_iface;
+	vlan.iface = p_iface;
 	vlan.tag = vlan_id;
-	if (eth_bridge_vlan_remove(br, br_p_iface, &vlan) < 0) {
+	if (eth_bridge_vlan_remove(br, p_iface, &vlan) < 0) {
 		return -EINVAL;
 	}
 
@@ -353,7 +367,7 @@ SHELL_STATIC_SUBCMD_SET_CREATE(
 	bridge_vlan_commands,
 	SHELL_CMD_ARG(add, NULL,
 		      "Add a VLAN to a bridge.\n"
-		      "'bridge vlan add <iface_index> <vlan_id> [<untagged|pvid>]'",
+		      "'bridge vlan add <iface_name> <vlan_id> [<untagged|pvid>]'",
 		      cmd_bridge_vlan_add, 3, 2),
 	SHELL_CMD_ARG(del, NULL,
 		      "Delete a VLAN from a bridge.\n"

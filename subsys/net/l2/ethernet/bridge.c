@@ -467,6 +467,14 @@ static enum net_verdict bridge_iface_process(struct net_if *iface, struct net_pk
 		goto out;
 	}
 
+	/* Drop all broadcast and multicast packets that were L2 forwarded in hardware */
+	struct net_eth_hdr *hdr = NET_ETH_HDR(pkt);
+	if ((net_eth_is_addr_broadcast(&hdr->dst) || net_eth_is_addr_multicast(&hdr->dst)) &&
+	    net_pkt_is_offload_fwd_mark(pkt)) {
+		NET_DBG("DROP: broadcast/multicast already L2 forwarded in hardware");
+		goto out;
+	}
+
 	lock_bridge(ctx);
 
 	/* Keep the original packet interface so that we can send to each
@@ -482,7 +490,8 @@ static enum net_verdict bridge_iface_process(struct net_if *iface, struct net_pk
 	ARRAY_FOR_EACH(ctx->eth_iface, i) {
 		if (ctx->eth_iface[i] != NULL && ctx->eth_iface[i] != orig_iface) {
 			/* Skip it if not up */
-			if (!net_if_flag_is_set(ctx->eth_iface[i], NET_IF_UP)) {
+			if (!net_if_flag_is_set(ctx->eth_iface[i], NET_IF_UP) ||
+			    !(net_if_flag_is_set(ctx->eth_iface[i], NET_IF_RUNNING))) {
 				continue;
 			}
 

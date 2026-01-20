@@ -20,7 +20,26 @@ struct net_if *dsa_recv(struct net_if *iface, struct net_pkt *pkt)
 	}
 
 	/* Tag protocol handles to untag and re-direct interface */
-	return dsa_tag_recv(iface, pkt);
+	struct net_if *dsa_iface = dsa_tag_recv(iface, pkt);
+
+/* Set the default forwarding if iface is attached to a bridge to false.
+   In Linux, once a DSA user port is attached to a bridge, i.e. when ``port_bridge_join`` is
+   successful, the forwarding plane is offloaded to the hardware. This means the hardware is
+   automonously forwarding (or flooding) received packets without CPU intervention. See the Linux
+   kernel documentation for more details.
+
+   Zephyr assumes the same semantics. If a user port is attached to a bridge, the forwarding plane
+   is offloaded to the hardware and hence we do not need to forward the packet in software when it
+   is received to the CPU. The canonical example are IP multicast data packets which are typically
+   flooded to all ports, including the CPU. To prevent this being forwarded twice, we simply drop
+   this packet by indicating that forwarding on the bridge is disabled for this packet.
+*/
+#if defined(CONFIG_NET_ETHERNET_BRIDGE)
+	struct ethernet_context *eth_ctx = net_if_l2_data(dsa_iface);
+	net_pkt_set_offload_fwd_mark(pkt, !!(eth_ctx->bridge));
+#endif
+
+	return dsa_iface;
 }
 
 int dsa_xmit(const struct device *dev, struct net_pkt *pkt)

@@ -213,6 +213,11 @@ config NET_SHELL_CAPTURE_SUPPORTED
 	default y
 	depends on NET_SHELL_SHOW_DISABLED_COMMANDS || NET_CAPTURE
 
+config NET_SHELL_CONNECTION_SUPPORTED
+	bool "Connection configuration"
+	default y
+	depends on NET_SHELL_SHOW_DISABLED_COMMANDS
+
 config NET_SHELL_DHCPV4_SUPPORTED
 	bool "DHCPv4 start / stop"
 	default y
@@ -258,10 +263,20 @@ config NET_SHELL_IPV6_SUPPORTED
 	default y
 	depends on NET_SHELL_SHOW_DISABLED_COMMANDS || (NET_NATIVE_IPV6 && NET_IPV6)
 
+config NET_SHELL_MEM_SUPPORTED
+	bool "Network memory usage"
+	default y
+	depends on NET_SHELL_SHOW_DISABLED_COMMANDS
+
 config NET_SHELL_IP_SUPPORTED
 	bool "Generic IP utilities"
 	default y
 	depends on NET_SHELL_SHOW_DISABLED_COMMANDS || NET_IP
+
+config NET_SHELL_PKT_SUPPORTED
+	bool "Packet memory utilities"
+	default y
+	depends on NET_SHELL_SHOW_DISABLED_COMMANDS
 
 config NET_SHELL_PKT_ALLOC_SUPPORTED
 	bool "Packet allocation monitoring"
