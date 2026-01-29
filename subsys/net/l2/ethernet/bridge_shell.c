@@ -305,21 +305,27 @@ static int cmd_bridge_vlan_del(const struct shell *sh, size_t argc, char *argv[]
 
 static int cmd_bridge_vlan_show(const struct shell *sh, size_t argc, char *argv[])
 {
+	int ret;
 	int br_idx;
+	char br_name[10], iface_name[6]; // TODO: use MAX_BRIDGE_NAME_LEN
 	struct net_if *br = NULL;
-	// char br_name[MAX_BRIDGE_NAME_LEN] = {0};
 	struct eth_bridge_iface_context *br_ctx;
 
 	// check interface is a bridge
-	br_idx = get_idx(sh, argv[1]);
+	// get iface
+	ret = snprintf(br_name, sizeof(br_name), "%s", argv[1]);
+	if (ret < 0 || ret >= sizeof(br_name)) {
+		shell_warn(sh, "Interface name is incorrect\n");
+		return -EINVAL;
+	}
+	br_idx = net_if_get_by_name(br_name);
 	if (br_idx < 0) {
-		shell_warn(sh, "Interface %d not valid\n", br_idx);
+		shell_warn(sh, "Interface %s not found\n", br_name);
 		return -ENOENT;
 	}
-
 	br = eth_bridge_get_by_index(br_idx);
 	if (br == NULL) {
-		shell_warn(sh, "Bridge %d not found\n", br_idx);
+		shell_warn(sh, "Interface %s not found\n", br_name);
 		return -ENOENT;
 	}
 
@@ -330,15 +336,14 @@ static int cmd_bridge_vlan_show(const struct shell *sh, size_t argc, char *argv[
 	}
 
 	br_ctx = net_if_get_device(br)->data;
-	// net_if_get_name(br, br_name, MAX_BRIDGE_NAME_LEN);
 
 	// check first VLAN entry to confirm that vlans are configured
 	if (br_ctx->vlan_info[0].iface == NULL) {
-		shell_print(sh, "No VLANs configured on bridge %d\n", br_idx);
+		shell_print(sh, "No VLANs configured on %s\n", br_name);
 		return 0;
 	}
 
-	shell_print(sh, "VLANs configured on bridge %d:\n", br_idx);
+	shell_print(sh, "VLANs configured on %s:\n", br_name);
 	shell_print(sh, "port    vlan-id    pvid    untagged");
 	// loop through every bridged port iface, then loop every vlan entry to find matches
 	// obviously very inefficient but ok for small number of entries
@@ -349,12 +354,17 @@ static int cmd_bridge_vlan_show(const struct shell *sh, size_t argc, char *argv[
 		if (br_p_iface == NULL) {
 			continue;
 		}
-		shell_print(sh, "%d: ", net_if_get_by_iface(br_p_iface));
+		ret = net_if_get_name(br_p_iface, iface_name, sizeof(iface_name));
+		if (ret < 0) { // defensive, ignore error
+			continue;
+		}
+
+		shell_print(sh, "%s: ", iface_name);
 
 		ARRAY_FOR_EACH(br_ctx->vlan_info, j) {
 			struct ethernet_vlan *_info = &br_ctx->vlan_info[j];
 			if (_info->iface == br_p_iface) {
-				shell_print(sh, "    %-9d    %-6s    %-8s", _info->tag,
+				shell_print(sh, "    %9d    %6s    %8s", _info->tag,
 					    _info->pvid ? "pvid" : "",
 					    _info->untagged ? "untagged" : "");
 			}
