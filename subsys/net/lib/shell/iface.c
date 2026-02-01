@@ -708,7 +708,12 @@ static int cmd_net_iface(const struct shell *sh, size_t argc, char *argv[])
 	int idx;
 
 	if (argv[1]) {
+#if CONFIG_NET_INTERFACE_NAME
+		idx = net_if_get_by_name(argv[1]);
+#else
 		idx = get_iface_idx(sh, argv[1]);
+#endif
+
 		if (idx < 0) {
 			return -ENOEXEC;
 		}
