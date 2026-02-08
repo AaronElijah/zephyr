@@ -216,6 +216,7 @@ int eth_bridge_iface_remove(struct net_if *br, struct net_if *iface)
 	return 0;
 }
 
+#if CONFIG_NET_VLAN
 int eth_bridge_vlan_add(struct net_if *br, struct net_if *br_p_iface, struct ethernet_vlan *vlan)
 {
 	char br_name[MAX_BRIDGE_NAME_LEN] = {0}, br_p_name[MAX_BRIDGE_NAME_LEN] = {0};
@@ -341,6 +342,7 @@ int eth_bridge_vlan_remove(struct net_if *br, struct net_if *br_p_iface, struct 
 
 	return 0;
 }
+#endif /* CONFIG_NET_VLAN */
 
 static inline bool is_link_local_addr(struct net_eth_addr *addr)
 {
