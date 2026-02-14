@@ -247,6 +247,8 @@ static int cmd_bridge_vlan_add(const struct shell *sh, size_t argc, char *argv[]
 		return -EINVAL;
 	}
 
+	shell_info(sh, "vlan %d added to bridge port %s\n", vlan_id, iface_name);
+
 	return 0;
 }
 
@@ -300,6 +302,8 @@ static int cmd_bridge_vlan_del(const struct shell *sh, size_t argc, char *argv[]
 		return -EINVAL;
 	}
 
+	shell_info(sh, "vlan %d removed from bridge port %s\n", vlan_id, iface_name);
+
 	return 0;
 }
 
@@ -307,7 +311,7 @@ static int cmd_bridge_vlan_show(const struct shell *sh, size_t argc, char *argv[
 {
 	int ret;
 	int br_idx;
-	char br_name[10], iface_name[6]; // TODO: use MAX_BRIDGE_NAME_LEN
+	char br_name[10], iface_name[6];
 	struct net_if *br = NULL;
 	struct eth_bridge_iface_context *br_ctx;
 
@@ -344,7 +348,7 @@ static int cmd_bridge_vlan_show(const struct shell *sh, size_t argc, char *argv[
 	}
 
 	shell_print(sh, "VLANs configured on %s:\n", br_name);
-	shell_print(sh, "port    vlan-id    pvid    untagged");
+	shell_print(sh, "port    vid    pvid    untagged");
 	// loop through every bridged port iface, then loop every vlan entry to find matches
 	// obviously very inefficient but ok for small number of entries
 	// in future, we can add a linked list type structure on the bridge port iface data
@@ -381,7 +385,7 @@ SHELL_STATIC_SUBCMD_SET_CREATE(
 		      cmd_bridge_vlan_add, 3, 2),
 	SHELL_CMD_ARG(del, NULL,
 		      "Delete a VLAN from a bridge.\n"
-		      "'bridge vlan del <iface_index> <vlan_id>'",
+		      "'bridge vlan del <iface_name> <vlan_id>'",
 		      cmd_bridge_vlan_del, 3, 0),
 	SHELL_CMD_ARG(show, NULL,
 		      "Show VLANs added to bridge.\n"

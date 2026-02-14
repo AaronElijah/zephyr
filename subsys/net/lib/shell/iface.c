@@ -31,6 +31,15 @@ LOG_MODULE_DECLARE(net_shell);
 #define UNICAST_MASK GENMASK(7, 1)
 #define LOCAL_BIT    BIT(1)
 
+static int get_iface_by_idxstr_or_name(const struct shell *sh, char *index_or_name)
+{
+#if CONFIG_NET_INTERFACE_NAME
+	return net_if_get_by_name(index_or_name);
+#else
+	return get_iface_idx(sh, index_or_name);
+#endif
+}
+
 #if defined(CONFIG_NET_L2_ETHERNET) && defined(CONFIG_NET_NATIVE)
 struct ethernet_capabilities {
 	enum ethernet_hw_caps capability;
@@ -647,7 +656,8 @@ static int cmd_net_iface_up(const struct shell *sh, size_t argc, char *argv[])
 	struct net_if *iface;
 	int idx, ret;
 
-	idx = get_iface_idx(sh, argv[1]);
+	idx = get_iface_by_idxstr_or_name(sh, argv[1]);
+
 	if (idx < 0) {
 		return -ENOEXEC;
 	}
@@ -679,7 +689,8 @@ static int cmd_net_iface_down(const struct shell *sh, size_t argc, char *argv[])
 	struct net_if *iface;
 	int idx, ret;
 
-	idx = get_iface_idx(sh, argv[1]);
+	idx = get_iface_by_idxstr_or_name(sh, argv[1]);
+
 	if (idx < 0) {
 		return -ENOEXEC;
 	}
@@ -708,11 +719,7 @@ static int cmd_net_iface(const struct shell *sh, size_t argc, char *argv[])
 	int idx;
 
 	if (argv[1]) {
-#if CONFIG_NET_INTERFACE_NAME
-		idx = net_if_get_by_name(argv[1]);
-#else
-		idx = get_iface_idx(sh, argv[1]);
-#endif
+		idx = get_iface_by_idxstr_or_name(sh, argv[1]);
 
 		if (idx < 0) {
 			return -ENOEXEC;
@@ -755,7 +762,7 @@ static int cmd_net_default_iface(const struct shell *sh, size_t argc, char *argv
 	} else {
 		int new_idx;
 
-		idx = get_iface_idx(sh, argv[1]);
+		idx = get_iface_by_idxstr_or_name(sh, argv[1]);
 		if (idx < 0) {
 			return -ENOEXEC;
 		}
@@ -777,7 +784,7 @@ static int cmd_net_default_iface(const struct shell *sh, size_t argc, char *argv
 #if defined(CONFIG_ETH_PHY_DRIVER)
 static int cmd_net_link_speed(const struct shell *sh, size_t argc, char *argv[])
 {
-	int idx = get_iface_idx(sh, argv[1]);
+	int idx = get_iface_by_idxstr_or_name(sh, argv[1]);
 	const struct device *phy_dev;
 	bool half_duplex = false;
 	uint16_t user_input_spd;
@@ -855,11 +862,10 @@ static int cmd_net_link_speed(const struct shell *sh, size_t argc, char *argv[])
 	return -ENOEXEC;
 }
 
-// TODO: test this on the DroneNet. Then we work on bridging all the ports together. Then we add
-// VLANs on that port
 static int cmd_net_phy_eee(const struct shell *sh, size_t argc, char *argv[])
 {
-	int idx = get_iface_idx(sh, argv[1]);
+	int err;
+	int idx = get_iface_by_idxstr_or_name(sh, argv[1]);
 	const struct device *phy_dev;
 	bool user_input_eee;
 	struct net_if *iface;
@@ -890,7 +896,16 @@ static int cmd_net_phy_eee(const struct shell *sh, size_t argc, char *argv[])
 		return -ENOTSUP;
 	}
 
-	return phy_configure_eee(phy_dev, user_input_eee);
+	err = phy_configure_eee(phy_dev, user_input_eee);
+	if (err == -ENOTSUP) {
+		PR_WARNING("EEE not supported\n");
+		return err;
+	} else if (err) {
+		PR_WARNING("Failed to set EEE: %d\n", err);
+		return err;
+	}
+	PR_INFO("EEE set to `%s`\n", user_input_eee ? "on" : "off");
+	return 0;
 }
 
 #endif /* CONFIG_ETH_PHY_DRIVER */

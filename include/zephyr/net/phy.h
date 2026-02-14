@@ -608,6 +608,10 @@ static inline int phy_configure_eee(const struct device *dev, bool is_eee_enable
 		ret = phy_read_c45_over_c22(dev, MDIO_MMD_AN, MDIO_AN_EEE_ADV, &eee_adv);
 	}
 
+	if (ret) {
+		return ret;
+	}
+
 	if (is_eee_enabled) {
 		eee_adv |= (MDIO_AN_EEE_ADV_100TX | MDIO_AN_EEE_ADV_1000T);
 	} else {
