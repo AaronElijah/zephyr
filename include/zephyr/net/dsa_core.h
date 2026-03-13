@@ -159,8 +159,7 @@ struct dsa_api {
 	int (*port_enable)(const struct device *dev, int port, struct phy_link_state *phy);
 	int (*port_disable)(const struct device *dev, int port);
 	/** PHYLINK MAC/PCS functions */
-	const struct phylink_pcs_ops *(*phylink_mac_select_pcs)(const struct device *dev, int port,
-								phy_interface_t interface);
+	const struct phylink_pcs_ops *(*phylink_mac_select_pcs)(const struct device *dev, int port);
 	int (*phylink_mac_prepare)(const struct device *dev, int port, phy_interface_t interface);
 	int (*phylink_mac_finish)(const struct device *dev, int port, phy_interface_t interface);
 	int (*phylink_mac_interface_config)(const struct device *dev, int port,
