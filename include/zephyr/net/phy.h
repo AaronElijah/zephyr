@@ -134,7 +134,7 @@ struct phylink_pcs_ops {
 	int (*pcs_post_config)(const struct device *dev, uint8_t phy_addr,
 			       phy_interface_t interface);
 	int (*pcs_config)(const struct device *dev, uint8_t phy_addr, phy_interface_t interface);
-	int (*pcs_get_state)(const struct device *dev, uint8_t phy_addr, phy_interface_t interface,
+	int (*pcs_get_state)(const struct device *dev, uint8_t phy_addr,
 			     struct phy_link_state *state);
 };
 
