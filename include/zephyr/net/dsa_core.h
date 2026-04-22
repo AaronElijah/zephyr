@@ -187,6 +187,10 @@ struct dsa_api {
 	 */
 	int (*set_mac_eee)(const struct device *dev, int port, bool is_eee_enabled);
 	int (*get_mac_eee)(const struct device *dev, int port, bool *is_eee_enabled);
+	/*
+	 * DSA Port link events
+	 */
+	int (*port_link_events_start)(const struct device *dev, bool is_start);
 };
 
 /**
@@ -302,16 +306,24 @@ int dsa_port_disable(struct net_if *iface, int port);
 int dsa_port_enable(struct net_if *iface, int port);
 
 /**
+ * @brief      Start/stop DSA port link event polling/dispatch
+ *
+ * @param      iface      DSA interface
+ * @param      is_start   true to start, false to stop
+ *
+ * @return     0 if successful, negative if error
+ */
+int dsa_port_link_events_start(struct net_if *iface, bool is_start);
+
+/**
  * @brief      Select PHYLINK PCS for a DSA port
  *
  * @param      iface     DSA interface
  * @param      port      Port to configure
- * @param      interface PHY interface type
  *
  * @return     Pointer to the PHYLINK PCS operations, or NULL if not found
  */
-const struct phylink_pcs_ops *dsa_port_phylink_mac_select_pcs(struct net_if *iface, int port,
-							      phy_interface_t interface);
+const struct phylink_pcs_ops *dsa_port_phylink_mac_select_pcs(struct net_if *iface, int port);
 
 /**
  * @brief 	    Configure MAC link on switch port

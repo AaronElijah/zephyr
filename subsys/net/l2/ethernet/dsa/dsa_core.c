@@ -108,14 +108,22 @@ int dsa_port_enable(struct net_if *iface, int port)
 	return api->port_enable(dev, port, &link_state);
 }
 
-const struct phylink_pcs_ops *dsa_port_phylink_mac_select_pcs(struct net_if *iface, int port,
-							      phy_interface_t interface)
+int dsa_port_link_events_start(struct net_if *iface, bool is_start)
 {
 	const struct device *dev = net_if_get_device(iface);
 	struct dsa_switch_context *context = dev->data;
 	const struct dsa_api *api = (const struct dsa_api *)context->dapi;
 
-	return api->phylink_mac_select_pcs(dev, port, interface);
+	return api->port_link_events_start ? api->port_link_events_start(dev, is_start) : -ENOSYS;
+}
+
+const struct phylink_pcs_ops *dsa_port_phylink_mac_select_pcs(struct net_if *iface, int port)
+{
+	const struct device *dev = net_if_get_device(iface);
+	struct dsa_switch_context *context = dev->data;
+	const struct dsa_api *api = (const struct dsa_api *)context->dapi;
+
+	return api->phylink_mac_select_pcs(dev, port);
 }
 
 /**
