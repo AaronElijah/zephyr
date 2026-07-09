@@ -142,6 +142,17 @@ config NET_ETHERNET_BRIDGE_ETH_INTERFACE_COUNT
 	help
 	  How many Ethernet interfaces can be bridged together per each
 	  bridge interface.
+	
+config NET_ETHERNET_BRIDGE_VLAN_COUNT
+	int "Max number of vlans that can exist on a single bridge"
+	default 0
+	range 0 4096
+	depends on NET_ETHERNET_BRIDGE && NET_VLAN
+	help
+	  How many vlans are allowed on a single bridge interface.
+	  This is NOT the max number of individual vid ID assigned to ports.
+	  This is how many vlan interface members can exist on a bridge.
+	
 
 if NET_ETHERNET_BRIDGE
 module = NET_ETHERNET_BRIDGE
